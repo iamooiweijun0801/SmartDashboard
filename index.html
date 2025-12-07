@@ -97,9 +97,9 @@ function loadCsvText(text){
   const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
   allRows = parsed.data.map((r,i)=>({
     _rowIndex:i,
-    site_name:r['Site Name']||'',
-    cluster:r['Cluster']||'',
-    status:r['Status']||'',
+    site_name:(r['Site Name']||'').trim(),
+    cluster:(r['Cluster']||'').trim(),
+    status:(r['Status']||'').trim(),
     lat:parseFloat((r['Latitude']||'').replace(/,/g,'.'))||NaN,
     lon:parseFloat((r['Longitude']||'').replace(/,/g,'.'))||NaN
   }));
@@ -166,9 +166,18 @@ function animateValue(id, start, end, total){
 // Legend color picker
 document.querySelectorAll('.legend .color').forEach(el=>{
   el.addEventListener('click',()=>{
-    const status=el.getAttribute('data-status');
-    const input=document.createElement('input'); input.type='color'; input.value=rgbToHex(el.style.background); input.style.position='fixed'; input.style.left='-9999px';
-    document.body.appendChild(input); input.click();
+    const status = el.getAttribute('data-status');
+    const input = document.createElement('input');
+    input.type='color';
+    input.value=rgbToHex(el.style.background);
+    input.style.position='fixed';
+    input.style.left='50%';
+    input.style.top='50%';
+    input.style.width='50px';
+    input.style.height='50px';
+    input.style.opacity='1';
+    document.body.appendChild(input);
+    input.click();
     input.addEventListener('input',()=>{ STATUS_COLORS[status]=input.value; el.style.background=input.value; updateMarkerColors(status,input.value); });
     input.addEventListener('change',()=>document.body.removeChild(input));
     input.addEventListener('blur',()=>document.body.removeChild(input));
@@ -188,7 +197,7 @@ function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match
 document.getElementById('clusterSelect').addEventListener('change',render);
 document.getElementById('sniperBtn').addEventListener('click',render);
 
-// Auto-refresh CSV
+// Auto-refresh CSV (replace with your Google Sheet CSV URL)
 const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?gid=0&single=true&output=csv';
 let lastCsvText=null;
 async function smartFetchCsv(){
