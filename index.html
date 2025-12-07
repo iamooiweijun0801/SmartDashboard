@@ -2,31 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Interactive Sites Map — Cluster Filter</title>
+<title>Site Map Dashboard</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 :root{
-  --bg:#e0eaff;
-  --card:#ffffff80;
-  --done:#66ff00;      /* Completed */
-  --inprogress:#2F80ED;/* In Progress */
+  --done:#66ff00;         /* Completed */
+  --inprogress:#2F80ED;   /* In Progress */
   --onhold-access:#FF0000;
   --onhold-space:#FF9900;
   --shadow:0 8px 30px rgba(0,0,0,0.12);
   --radius:12px;
 }
-html, body { margin:0; height:100%; font-family: 'Inter', system-ui, Arial; background: linear-gradient(to bottom right, #e0eaff, #ffffff); color:#222; font-size:14px; line-height:1.5; }
-.app{ display:grid; grid-template-columns:380px 1fr; gap:16px; height:100vh; padding:16px; box-sizing:border-box; }
-.panel{ background:var(--card); backdrop-filter: blur(12px); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:auto; border:1px solid rgba(255,255,255,0.3); }
-#map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); border:2px solid rgba(255,255,255,0.3); }
-h2{ margin-bottom:12px; font-weight:700; font-size:1.4em; color:#1a1a1a; }
-label{ font-weight:600; color:#333; }
-select{ padding:8px 10px; border-radius:var(--radius); border:1px solid #ccc; margin-bottom:12px; }
-#details{ font-size:14px; color:#222; margin-top:8px; padding:8px; border-radius:var(--radius); background:rgba(255,255,255,0.7); box-shadow:0 4px 12px rgba(0,0,0,0.08); min-height:64px; }
-.map-sniper-btn{position:absolute;bottom:20px;right:20px;z-index:9999;width:50px;height:50px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #444;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
-.map-sniper-btn img{width:28px;height:28px;}
-.map-sniper-btn:hover{transform:translateY(-4px);box-shadow:0 6px 18px rgba(0,0,0,0.28);}
+html, body { margin:0; height:100%; font-family: Arial; background:#e0eaff; color:#222; font-size:14px; line-height:1.5; }
+.app{ display:grid; grid-template-columns:300px 1fr; gap:16px; height:100vh; padding:16px; box-sizing:border-box; }
+.panel{ background:#fff; border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:auto; }
+#map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); }
+label{ font-weight:600; margin-bottom:8px; }
+select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; margin-bottom:12px; }
+.legend{ display:flex; flex-direction:column; margin-top:12px; }
+.legend .item{ display:flex; align-items:center; margin-bottom:4px; }
+.legend .color{ width:16px; height:16px; margin-right:8px; border-radius:50%; border:1px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.3); }
+#details{ margin-top:12px; font-size:14px; min-height:64px; }
 </style>
 </head>
 <body>
@@ -34,36 +31,28 @@ select{ padding:8px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
   <div class="panel">
     <h2>Site Map Dashboard</h2>
     <label for="clusterSelect">Filter by Cluster</label>
-    <select id="clusterSelect">
-      <option value="all">All Clusters</option>
-    </select>
-    <div id="details">Hover a marker or click a marker to see details here.</div>
+    <select id="clusterSelect"><option value="all">All Clusters</option></select>
+
+    <div class="legend">
+      <div class="item"><div class="color" style="background:var(--done)"></div>Completed</div>
+      <div class="item"><div class="color" style="background:var(--inprogress)"></div>In Progress</div>
+      <div class="item"><div class="color" style="background:var(--onhold-access)"></div>On-hold Access</div>
+      <div class="item"><div class="color" style="background:var(--onhold-space)"></div>On-hold Space</div>
+    </div>
+
+    <div id="details">Hover or click a marker to see details here.</div>
   </div>
   <div class="panel" style="padding:0;">
-    <div id="map">
-      <div id="sniperBtn" class="map-sniper-btn" title="Reset view"> 
-        <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" alt="sniper"> 
-      </div>
-    </div>
+    <div id="map"></div>
   </div>
 </div>
 
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const map = L.map('map', { preferCanvas: true }).setView([3.0, 101.5], 6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+const map = L.map('map').setView([3.0,101.5],6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
-
-function dotIcon(color){
-  return L.divIcon({
-    className:'',
-    html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
-    iconSize:[14,14],
-    iconAnchor:[7,7],
-    popupAnchor:[0,-10]
-  });
-}
 
 const STATUS_COLORS = {
   'Completed':'var(--done)',
@@ -72,87 +61,66 @@ const STATUS_COLORS = {
   'On-hold Space':'var(--onhold-space)'
 };
 
-let allRows = [];
-let visibleMarkers = {};
-let pinnedMarker = null;
+let allRows = [], visibleMarkers = {}, pinnedMarker=null;
+
+function dotIcon(color){
+  return L.divIcon({className:'', html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
+}
 
 function loadCsvText(text){
   const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
-  if(!parsed || !parsed.data){ alert('CSV parse error or no data found.'); return; }
-
-  allRows = parsed.data.map((r,i)=>{
-    const site_name = r['Site Name'] || '';
-    const cluster = r['Cluster'] || '';
-    const status = r['Status'] || '';
-    const lat = parseFloat((r['Latitude']||'').toString().replace(/,/g,'.'));
-    const lon = parseFloat((r['Longitude']||'').toString().replace(/,/g,'.'));
-    return { _rowIndex:i, site_name, cluster, status, lat: Number.isFinite(lat)?lat:NaN, lon: Number.isFinite(lon)?lon:NaN };
-  });
-
+  allRows = parsed.data.map((r,i)=>({
+    _rowIndex:i,
+    site_name:r['Site Name']||'',
+    cluster:r['Cluster']||'',
+    status:r['Status']||'',
+    lat:parseFloat((r['Latitude']||'').replace(/,/g,'.'))||NaN,
+    lon:parseFloat((r['Longitude']||'').replace(/,/g,'.'))||NaN
+  }));
   populateClusterFilter();
   render();
 }
 
 function populateClusterFilter(){
-  const clusterSet = new Set();
-  allRows.forEach(r=>{ if(r.cluster) clusterSet.add(r.cluster); });
+  const clusterSet = new Set(allRows.map(r=>r.cluster).filter(c=>c));
   const clusterSelect = document.getElementById('clusterSelect');
   clusterSelect.innerHTML = '<option value="all">All Clusters</option>';
-  clusterSet.forEach(c=>{
-    const option = document.createElement('option');
-    option.value = c;
-    option.textContent = c;
-    clusterSelect.appendChild(option);
-  });
+  clusterSet.forEach(c=>{ const opt=document.createElement('option'); opt.value=c; opt.textContent=c; clusterSelect.appendChild(opt); });
 }
 
 function render(){
   markersLayer.clearLayers();
-  visibleMarkers = {};
-  const bounds = [];
+  visibleMarkers={};
+  const bounds=[];
   const selectedCluster = document.getElementById('clusterSelect').value;
 
   allRows.forEach(r=>{
     if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
-    if(selectedCluster !== 'all' && r.cluster !== selectedCluster) return;
+    if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
 
-    const color = STATUS_COLORS[r.status] || '#888';
+    const color = STATUS_COLORS[r.status]||'#888';
     const icon = dotIcon(color);
-
-    const popupHtml = `<div style="min-width:220px">
-      <strong>${escapeHtml(r.site_name)}</strong><br/>
-      <em>Cluster:</em> ${escapeHtml(r.cluster)}<br/>
-      <em>Status:</em> ${escapeHtml(r.status)}
-    </div>`;
+    const popupHtml = `<div><strong>${r.site_name}</strong><br/><em>Cluster:</em> ${r.cluster}<br/><em>Status:</em> ${r.status}</div>`;
 
     const m = L.marker([r.lat,r.lon],{icon});
-    m.bindPopup(popupHtml, { autoClose:false, closeOnClick:false });
-    m.on('mouseover', ()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML = popupHtml; });
+    m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
+    m.on('mouseover', ()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
     m.on('mouseout', ()=>{ if(pinnedMarker!==m) m.closePopup(); });
-    m.on('click', ()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML = popupHtml; map.setView(m.getLatLng(),16); });
+    m.on('click', ()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
     m.addTo(markersLayer);
 
-    visibleMarkers['row'+r._rowIndex] = m;
+    visibleMarkers['row'+r._rowIndex]=m;
     bounds.push([r.lat,r.lon]);
   });
 
-  if(bounds.length){
-    const b = L.latLngBounds(bounds);
-    if(b.isValid()) map.fitBounds(b.pad(0.2));
-  }
+  if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
 }
 
-function escapeHtml(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-
 document.getElementById('clusterSelect').addEventListener('change', render);
-document.getElementById('sniperBtn').addEventListener('click', ()=>render());
 
-// Fetch CSV from Google Sheet
+// Fetch CSV from Google Sheet (replace URL with your CSV export)
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?gid=0&single=true&output=csv';
-fetch(SHEET_CSV_URL)
-.then(r=>r.text())
-.then(t=>loadCsvText(t))
-.catch(err=>alert('Could not fetch CSV: '+err));
+fetch(SHEET_CSV_URL).then(r=>r.text()).then(t=>loadCsvText(t)).catch(err=>alert('Could not fetch CSV:'+err));
 </script>
 </body>
 </html>
