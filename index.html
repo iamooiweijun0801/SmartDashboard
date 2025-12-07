@@ -7,10 +7,6 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 :root{
-  --Completed:#66ff00;
-  --InProgress:#2F80ED;
-  --OnHoldAccess:#FF0000;
-  --OnHoldSpace:#FF9900;
   --shadow:0 8px 30px rgba(0,0,0,0.12);
   --radius:12px;
 }
@@ -55,13 +51,7 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
       </div>
     </div>
 
-    <div class="legend" id="legendContainer">
-      <div class="item"><div class="color" data-status="Completed" style="background:var(--Completed)"></div>Completed</div>
-      <div class="item"><div class="color" data-status="In Progress" style="background:var(--InProgress)"></div>In Progress</div>
-      <div class="item"><div class="color" data-status="On-hold Access" style="background:var(--OnHoldAccess)"></div>On-hold Access</div>
-      <div class="item"><div class="color" data-status="On-hold Space" style="background:var(--OnHoldSpace)"></div>On-hold Space</div>
-    </div>
-
+    <div class="legend" id="legendContainer"></div>
     <div id="details">Hover or click a marker to see details here.</div>
   </div>
 
@@ -81,13 +71,8 @@ const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
 let allRows=[], visibleMarkers={}, pinnedMarker=null;
-
-const STATUS_COLORS = {
-  'Completed': getComputedStyle(document.documentElement).getPropertyValue('--Completed').trim(),
-  'In Progress': getComputedStyle(document.documentElement).getPropertyValue('--InProgress').trim(),
-  'On-hold Access': getComputedStyle(document.documentElement).getPropertyValue('--OnHoldAccess').trim(),
-  'On-hold Space': getComputedStyle(document.documentElement).getPropertyValue('--OnHoldSpace').trim()
-};
+const STATUS_COLORS = {};
+const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888'];
 
 function dotIcon(color){
   return L.divIcon({className:'', html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
@@ -118,35 +103,41 @@ function render(){
   markersLayer.clearLayers(); visibleMarkers={};
   const bounds=[], selectedCluster=document.getElementById('clusterSelect').value;
   let doneCount=0,pendingCount=0;
+
   allRows.forEach(r=>{
     if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
     if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
 
-    const color = STATUS_COLORS[r.status]||'#888';
+    if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status] = DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length % DEFAULT_STATUS_COLORS.length];
+    const color = STATUS_COLORS[r.status];
     const icon = dotIcon(color);
+
     const popupHtml = `<div style="min-width:220px">
       <strong>${r.site_name}</strong><br/>
       <em>Cluster:</em> ${r.cluster}<br/>
       <em>Status:</em> ${r.status}
     </div>`;
+
     const m = L.marker([r.lat,r.lon],{icon});
     m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
-    m.on('mouseover',()=>{ if(pinnedMarker&&pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
+    m.on('mouseover',()=>{ if(pinnedMarker && pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
     m.on('mouseout',()=>{ if(pinnedMarker!==m)m.closePopup(); });
-    m.on('click',()=>{ if(pinnedMarker&&pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
+    m.on('click',()=>{ if(pinnedMarker && pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
     m.addTo(markersLayer);
     visibleMarkers['row'+r._rowIndex]=m;
     bounds.push([r.lat,r.lon]);
+
     if(r.status==='Completed') doneCount++; else pendingCount++;
   });
 
-  // Animate stats
   animateValue('doneTotal',0,doneCount,doneCount+pendingCount);
   animateValue('pendingCount',0,pendingCount);
   document.getElementById('donePct').textContent = (doneCount+pendingCount)? Math.round(doneCount/(doneCount+pendingCount)*10000)/100+'%':'0%';
   document.getElementById('totalCount').textContent = `Total: ${doneCount+pendingCount}`;
 
   if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
+
+  generateLegend();
 }
 
 function animateValue(id, start, end, total){
@@ -163,31 +154,36 @@ function animateValue(id, start, end, total){
   window.requestAnimationFrame(step);
 }
 
-// Legend color picker
-document.querySelectorAll('.legend .color').forEach(el=>{
-  el.addEventListener('click',()=>{
-    const status = el.getAttribute('data-status');
-    const input = document.createElement('input');
-    input.type='color';
-    input.value=rgbToHex(el.style.background);
-    input.style.position='fixed';
-    input.style.left='50%';
-    input.style.top='50%';
-    input.style.width='50px';
-    input.style.height='50px';
-    input.style.opacity='1';
-    document.body.appendChild(input);
-    input.click();
-    input.addEventListener('input',()=>{ STATUS_COLORS[status]=input.value; el.style.background=input.value; updateMarkerColors(status,input.value); });
-    input.addEventListener('change',()=>document.body.removeChild(input));
-    input.addEventListener('blur',()=>document.body.removeChild(input));
+function generateLegend(){
+  const legendContainer = document.getElementById('legendContainer');
+  legendContainer.innerHTML = '';
+  const statuses = Array.from(new Set(allRows.map(r=>r.status).filter(s=>s)));
+  
+  statuses.forEach((status,i)=>{
+    if(!STATUS_COLORS[status]) STATUS_COLORS[status] = DEFAULT_STATUS_COLORS[i % DEFAULT_STATUS_COLORS.length];
+    const item = document.createElement('div'); item.className='item';
+    const colorDiv = document.createElement('div'); colorDiv.className='color';
+    colorDiv.setAttribute('data-status',status); colorDiv.style.background = STATUS_COLORS[status];
+
+    colorDiv.addEventListener('click', ()=>{
+      const input = document.createElement('input'); input.type='color';
+      input.value = rgbToHex(window.getComputedStyle(colorDiv).backgroundColor);
+      input.style.position='fixed'; input.style.left='50%'; input.style.top='50%'; input.style.width='50px'; input.style.height='50px';
+      document.body.appendChild(input); input.click();
+      input.addEventListener('input',()=>{ STATUS_COLORS[status]=input.value; colorDiv.style.background=input.value; updateMarkerColors(status,input.value); });
+      input.addEventListener('change',()=>document.body.removeChild(input));
+      input.addEventListener('blur',()=>document.body.removeChild(input));
+    });
+
+    item.appendChild(colorDiv); item.appendChild(document.createTextNode(status));
+    legendContainer.appendChild(item);
   });
-});
+}
 
 function updateMarkerColors(status,newColor){
   for(const key in visibleMarkers){
-    const m=visibleMarkers[key];
-    const row = allRows.find(r=>('row'+r._rowIndex)===key);
+    const m = visibleMarkers[key];
+    const row = allRows.find(r=>'row'+r._rowIndex === key);
     if(row && row.status===status) m.setIcon(dotIcon(newColor));
   }
 }
@@ -197,7 +193,7 @@ function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match
 document.getElementById('clusterSelect').addEventListener('change',render);
 document.getElementById('sniperBtn').addEventListener('click',render);
 
-// Auto-refresh CSV (replace with your Google Sheet CSV URL)
+// Auto-refresh CSV
 const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?gid=0&single=true&output=csv';
 let lastCsvText=null;
 async function smartFetchCsv(){
