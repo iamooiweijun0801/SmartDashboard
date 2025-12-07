@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Site Map Dashboard</title>
+<title>Interactive Sites Map</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
@@ -15,15 +15,24 @@
   --radius:12px;
 }
 html, body { margin:0; height:100%; font-family: Arial; background:#e0eaff; color:#222; font-size:14px; line-height:1.5; }
-.app{ display:grid; grid-template-columns:300px 1fr; gap:16px; height:100vh; padding:16px; box-sizing:border-box; }
+.app{ display:grid; grid-template-columns:380px 1fr; gap:16px; height:100vh; padding:16px; box-sizing:border-box; }
 .panel{ background:#fff; border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:auto; }
-#map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); }
-label{ font-weight:600; margin-bottom:8px; }
+#map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); border:2px solid rgba(0,0,0,0.3); position:relative; }
+h2{ margin-bottom:12px; font-weight:700; font-size:1.4em; color:#1a1a1a; }
+label{ font-weight:600; color:#333; margin-bottom:6px; }
 select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; margin-bottom:12px; }
-.legend{ display:flex; flex-direction:column; margin-top:12px; }
-.legend .item{ display:flex; align-items:center; margin-bottom:4px; }
-.legend .color{ width:16px; height:16px; margin-right:8px; border-radius:50%; border:1px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.3); }
-#details{ margin-top:12px; font-size:14px; min-height:64px; }
+.statRow{ display:flex; gap:12px; margin-bottom:12px; }
+.stat{ background:rgba(255,255,255,0.85); flex:1; padding:12px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center; transition:0.2s; }
+.stat:hover{ box-shadow:0 6px 18px rgba(0,0,0,0.15); transform:translateY(-2px); }
+.stat .small{ font-weight:500; color:#555; margin-bottom:4px; }
+.stat div[id]{ font-weight:700; font-size:20px; margin-top:4px; }
+.legend{ display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+.legend .item{ display:flex; align-items:center; cursor:pointer; }
+.legend .color{ width:16px; height:16px; border-radius:50%; margin-right:8px; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,0.25); }
+#details{ font-size:14px; color:#222; margin-top:8px; padding:8px; border-radius:var(--radius); background:rgba(255,255,255,0.7); box-shadow:0 4px 12px rgba(0,0,0,0.08); min-height:80px; }
+.map-sniper-btn{position:absolute;bottom:20px;right:20px;z-index:9999;width:50px;height:50px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #444;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
+.map-sniper-btn img{width:28px;height:28px;}
+.map-sniper-btn:hover{transform:translateY(-4px);box-shadow:0 6px 18px rgba(0,0,0,0.28);}
 </style>
 </head>
 <body>
@@ -33,38 +42,61 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
     <label for="clusterSelect">Filter by Cluster</label>
     <select id="clusterSelect"><option value="all">All Clusters</option></select>
 
-    <div class="legend">
-      <div class="item"><div class="color" style="background:var(--done)"></div>Completed</div>
-      <div class="item"><div class="color" style="background:var(--inprogress)"></div>In Progress</div>
-      <div class="item"><div class="color" style="background:var(--onhold-access)"></div>On-hold Access</div>
-      <div class="item"><div class="color" style="background:var(--onhold-space)"></div>On-hold Space</div>
+    <div class="statRow">
+      <div class="stat">
+        <div class="small">Completed / Total</div>
+        <div id="doneTotal">0 / 0</div>
+        <div class="small" id="donePct">0%</div>
+      </div>
+      <div class="stat">
+        <div class="small">Pending</div>
+        <div id="pendingCount">0</div>
+        <div class="small" id="totalCount">Total: 0</div>
+      </div>
+    </div>
+
+    <div class="legend" id="legendContainer">
+      <div class="item"><div class="color" data-status="Completed" style="background:var(--done)"></div>Completed</div>
+      <div class="item"><div class="color" data-status="In Progress" style="background:var(--inprogress)"></div>In Progress</div>
+      <div class="item"><div class="color" data-status="On-hold Access" style="background:var(--onhold-access)"></div>On-hold Access</div>
+      <div class="item"><div class="color" data-status="On-hold Space" style="background:var(--onhold-space)"></div>On-hold Space</div>
     </div>
 
     <div id="details">Hover or click a marker to see details here.</div>
   </div>
+
   <div class="panel" style="padding:0;">
-    <div id="map"></div>
+    <div id="map">
+      <div id="sniperBtn" class="map-sniper-btn" title="Reset view">
+        <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" alt="Reset View">
+      </div>
+    </div>
   </div>
 </div>
 
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const map = L.map('map').setView([3.0,101.5],6);
+const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
 
+let allRows=[], visibleMarkers={}, pinnedMarker=null;
+
+// Status colors
 const STATUS_COLORS = {
-  'Completed':'var(--done)',
-  'In Progress':'var(--inprogress)',
-  'On-hold Access':'var(--onhold-access)',
-  'On-hold Space':'var(--onhold-space)'
+  'Completed': getComputedStyle(document.documentElement).getPropertyValue('--done').trim(),
+  'In Progress': getComputedStyle(document.documentElement).getPropertyValue('--inprogress').trim(),
+  'On-hold Access': getComputedStyle(document.documentElement).getPropertyValue('--onhold-access').trim(),
+  'On-hold Space': getComputedStyle(document.documentElement).getPropertyValue('--onhold-space').trim()
 };
 
-let allRows = [], visibleMarkers = {}, pinnedMarker=null;
-
 function dotIcon(color){
-  return L.divIcon({className:'', html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
+    iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]
+  });
 }
 
 function loadCsvText(text){
@@ -83,16 +115,15 @@ function loadCsvText(text){
 
 function populateClusterFilter(){
   const clusterSet = new Set(allRows.map(r=>r.cluster).filter(c=>c));
-  const clusterSelect = document.getElementById('clusterSelect');
-  clusterSelect.innerHTML = '<option value="all">All Clusters</option>';
-  clusterSet.forEach(c=>{ const opt=document.createElement('option'); opt.value=c; opt.textContent=c; clusterSelect.appendChild(opt); });
+  const select = document.getElementById('clusterSelect');
+  select.innerHTML = '<option value="all">All Clusters</option>';
+  clusterSet.forEach(c=>{ const o=document.createElement('option'); o.value=c;o.textContent=c;select.appendChild(o); });
 }
 
 function render(){
-  markersLayer.clearLayers();
-  visibleMarkers={};
-  const bounds=[];
-  const selectedCluster = document.getElementById('clusterSelect').value;
+  markersLayer.clearLayers(); visibleMarkers={};
+  const bounds=[], selectedCluster=document.getElementById('clusterSelect').value;
+  let doneCount=0,pendingCount=0;
 
   allRows.forEach(r=>{
     if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
@@ -100,25 +131,65 @@ function render(){
 
     const color = STATUS_COLORS[r.status]||'#888';
     const icon = dotIcon(color);
-    const popupHtml = `<div><strong>${r.site_name}</strong><br/><em>Cluster:</em> ${r.cluster}<br/><em>Status:</em> ${r.status}</div>`;
+    const popupHtml = `<div style="min-width:220px">
+      <strong>${r.site_name}</strong><br/>
+      <em>Cluster:</em> ${r.cluster}<br/>
+      <em>Status:</em> ${r.status}
+    </div>`;
 
     const m = L.marker([r.lat,r.lon],{icon});
     m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
-    m.on('mouseover', ()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
-    m.on('mouseout', ()=>{ if(pinnedMarker!==m) m.closePopup(); });
-    m.on('click', ()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
-    m.addTo(markersLayer);
+    m.on('mouseover',()=>{ if(pinnedMarker&&pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
+    m.on('mouseout',()=>{ if(pinnedMarker!==m)m.closePopup(); });
+    m.on('click',()=>{ if(pinnedMarker&&pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
 
+    m.addTo(markersLayer);
     visibleMarkers['row'+r._rowIndex]=m;
     bounds.push([r.lat,r.lon]);
+
+    if(r.status==='Completed') doneCount++; else pendingCount++;
   });
 
+  // Stats
+  const total=doneCount+pendingCount;
+  document.getElementById('doneTotal').textContent=`${doneCount} / ${total}`;
+  document.getElementById('donePct').textContent=total?Math.round(doneCount/total*10000)/100+'%':'0%';
+  document.getElementById('pendingCount').textContent=pendingCount;
+  document.getElementById('totalCount').textContent=`Total: ${total}`;
+
+  // Fit bounds
   if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
 }
 
-document.getElementById('clusterSelect').addEventListener('change', render);
+// Legend color picker
+document.querySelectorAll('.legend .color').forEach(el=>{
+  el.addEventListener('click',()=>{
+    const status = el.getAttribute('data-status');
+    const input = document.createElement('input'); input.type='color'; input.value=rgbToHex(el.style.background); input.style.position='fixed'; input.style.left='-9999px';
+    document.body.appendChild(input); input.click();
+    input.addEventListener('input',()=>{ 
+      const newColor=input.value; STATUS_COLORS[status]=newColor; el.style.background=newColor; updateMarkerColors(status,newColor);
+    });
+    input.addEventListener('change',()=>document.body.removeChild(input));
+    input.addEventListener('blur',()=>document.body.removeChild(input));
+  });
+});
 
-// Fetch CSV from Google Sheet (replace URL with your CSV export)
+function updateMarkerColors(status,newColor){
+  for(const key in visibleMarkers){
+    const m = visibleMarkers[key];
+    const row = allRows.find(r=>('row'+r._rowIndex)===key);
+    if(!row) continue;
+    if(row.status===status) m.setIcon(dotIcon(newColor));
+  }
+}
+
+function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums = rgb.match(/\d+/g).map(Number); return '#'+nums.map(n=>n.toString(16).padStart(2,'0')).join(''); }
+
+document.getElementById('clusterSelect').addEventListener('change',render);
+document.getElementById('sniperBtn').addEventListener('click',render);
+
+// Fetch CSV
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?gid=0&single=true&output=csv';
 fetch(SHEET_CSV_URL).then(r=>r.text()).then(t=>loadCsvText(t)).catch(err=>alert('Could not fetch CSV:'+err));
 </script>
