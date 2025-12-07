@@ -7,10 +7,10 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 :root{
-  --done:#66ff00;         /* Completed */
-  --inprogress:#2F80ED;   /* In Progress */
-  --onhold-access:#FF0000;
-  --onhold-space:#FF9900;
+  --Completed:#66ff00;
+  --InProgress:#2F80ED;
+  --OnHoldAccess:#FF0000;
+  --OnHoldSpace:#FF9900;
   --shadow:0 8px 30px rgba(0,0,0,0.12);
   --radius:12px;
 }
@@ -56,10 +56,10 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
     </div>
 
     <div class="legend" id="legendContainer">
-      <div class="item"><div class="color" data-status="Completed" style="background:var(--done)"></div>Completed</div>
-      <div class="item"><div class="color" data-status="In Progress" style="background:var(--inprogress)"></div>In Progress</div>
-      <div class="item"><div class="color" data-status="On-hold Access" style="background:var(--onhold-access)"></div>On-hold Access</div>
-      <div class="item"><div class="color" data-status="On-hold Space" style="background:var(--onhold-space)"></div>On-hold Space</div>
+      <div class="item"><div class="color" data-status="Completed" style="background:var(--Completed)"></div>Completed</div>
+      <div class="item"><div class="color" data-status="In Progress" style="background:var(--InProgress)"></div>In Progress</div>
+      <div class="item"><div class="color" data-status="On-hold Access" style="background:var(--OnHoldAccess)"></div>On-hold Access</div>
+      <div class="item"><div class="color" data-status="On-hold Space" style="background:var(--OnHoldSpace)"></div>On-hold Space</div>
     </div>
 
     <div id="details">Hover or click a marker to see details here.</div>
@@ -80,23 +80,17 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
 const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
-
 let allRows=[], visibleMarkers={}, pinnedMarker=null;
 
-// Status colors
 const STATUS_COLORS = {
-  'Completed': getComputedStyle(document.documentElement).getPropertyValue('--done').trim(),
-  'In Progress': getComputedStyle(document.documentElement).getPropertyValue('--inprogress').trim(),
-  'On-hold Access': getComputedStyle(document.documentElement).getPropertyValue('--onhold-access').trim(),
-  'On-hold Space': getComputedStyle(document.documentElement).getPropertyValue('--onhold-space').trim()
+  'Completed': getComputedStyle(document.documentElement).getPropertyValue('--Completed').trim(),
+  'In Progress': getComputedStyle(document.documentElement).getPropertyValue('--InProgress').trim(),
+  'On-hold Access': getComputedStyle(document.documentElement).getPropertyValue('--OnHoldAccess').trim(),
+  'On-hold Space': getComputedStyle(document.documentElement).getPropertyValue('--OnHoldSpace').trim()
 };
 
 function dotIcon(color){
-  return L.divIcon({
-    className:'',
-    html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
-    iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]
-  });
+  return L.divIcon({className:'', html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
 }
 
 function loadCsvText(text){
@@ -124,7 +118,6 @@ function render(){
   markersLayer.clearLayers(); visibleMarkers={};
   const bounds=[], selectedCluster=document.getElementById('clusterSelect').value;
   let doneCount=0,pendingCount=0;
-
   allRows.forEach(r=>{
     if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
     if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
@@ -136,40 +129,47 @@ function render(){
       <em>Cluster:</em> ${r.cluster}<br/>
       <em>Status:</em> ${r.status}
     </div>`;
-
     const m = L.marker([r.lat,r.lon],{icon});
     m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
     m.on('mouseover',()=>{ if(pinnedMarker&&pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
     m.on('mouseout',()=>{ if(pinnedMarker!==m)m.closePopup(); });
     m.on('click',()=>{ if(pinnedMarker&&pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
-
     m.addTo(markersLayer);
     visibleMarkers['row'+r._rowIndex]=m;
     bounds.push([r.lat,r.lon]);
-
     if(r.status==='Completed') doneCount++; else pendingCount++;
   });
 
-  // Stats
-  const total=doneCount+pendingCount;
-  document.getElementById('doneTotal').textContent=`${doneCount} / ${total}`;
-  document.getElementById('donePct').textContent=total?Math.round(doneCount/total*10000)/100+'%':'0%';
-  document.getElementById('pendingCount').textContent=pendingCount;
-  document.getElementById('totalCount').textContent=`Total: ${total}`;
+  // Animate stats
+  animateValue('doneTotal',0,doneCount,doneCount+pendingCount);
+  animateValue('pendingCount',0,pendingCount);
+  document.getElementById('donePct').textContent = (doneCount+pendingCount)? Math.round(doneCount/(doneCount+pendingCount)*10000)/100+'%':'0%';
+  document.getElementById('totalCount').textContent = `Total: ${doneCount+pendingCount}`;
 
-  // Fit bounds
   if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
+}
+
+function animateValue(id, start, end, total){
+  const obj=document.getElementById(id); if(!obj) return;
+  let startTimestamp=null;
+  const duration=500;
+  const step=timestamp=>{
+    if(!startTimestamp) startTimestamp=timestamp;
+    const progress=Math.min((timestamp-startTimestamp)/duration,1);
+    const current=Math.floor(progress*(end-start)+start);
+    obj.textContent=total? `${current} / ${total}` : current;
+    if(progress<1) window.requestAnimationFrame(step);
+  };
+  window.requestAnimationFrame(step);
 }
 
 // Legend color picker
 document.querySelectorAll('.legend .color').forEach(el=>{
   el.addEventListener('click',()=>{
-    const status = el.getAttribute('data-status');
-    const input = document.createElement('input'); input.type='color'; input.value=rgbToHex(el.style.background); input.style.position='fixed'; input.style.left='-9999px';
+    const status=el.getAttribute('data-status');
+    const input=document.createElement('input'); input.type='color'; input.value=rgbToHex(el.style.background); input.style.position='fixed'; input.style.left='-9999px';
     document.body.appendChild(input); input.click();
-    input.addEventListener('input',()=>{ 
-      const newColor=input.value; STATUS_COLORS[status]=newColor; el.style.background=newColor; updateMarkerColors(status,newColor);
-    });
+    input.addEventListener('input',()=>{ STATUS_COLORS[status]=input.value; el.style.background=input.value; updateMarkerColors(status,input.value); });
     input.addEventListener('change',()=>document.body.removeChild(input));
     input.addEventListener('blur',()=>document.body.removeChild(input));
   });
@@ -177,21 +177,30 @@ document.querySelectorAll('.legend .color').forEach(el=>{
 
 function updateMarkerColors(status,newColor){
   for(const key in visibleMarkers){
-    const m = visibleMarkers[key];
+    const m=visibleMarkers[key];
     const row = allRows.find(r=>('row'+r._rowIndex)===key);
-    if(!row) continue;
-    if(row.status===status) m.setIcon(dotIcon(newColor));
+    if(row && row.status===status) m.setIcon(dotIcon(newColor));
   }
 }
 
-function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums = rgb.match(/\d+/g).map(Number); return '#'+nums.map(n=>n.toString(16).padStart(2,'0')).join(''); }
+function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match(/\d+/g).map(Number); return '#'+nums.map(n=>n.toString(16).padStart(2,'0')).join(''); }
 
 document.getElementById('clusterSelect').addEventListener('change',render);
 document.getElementById('sniperBtn').addEventListener('click',render);
 
-// Fetch CSV
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?gid=0&single=true&output=csv';
-fetch(SHEET_CSV_URL).then(r=>r.text()).then(t=>loadCsvText(t)).catch(err=>alert('Could not fetch CSV:'+err));
+// Auto-refresh CSV
+const SHEET_CSV_URL='YOUR_CSV_EXPORT_URL';
+let lastCsvText=null;
+async function smartFetchCsv(){
+  try{
+    const response=await fetch(SHEET_CSV_URL);
+    if(!response.ok) throw new Error('Network response not ok');
+    const csvText=await response.text();
+    if(csvText!==lastCsvText){ lastCsvText=csvText; loadCsvText(csvText); }
+  }catch(err){ console.error('CSV fetch error:',err);}
+}
+smartFetchCsv();
+setInterval(smartFetchCsv,30000);
 </script>
 </body>
 </html>
