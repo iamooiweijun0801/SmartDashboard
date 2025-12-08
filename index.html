@@ -73,7 +73,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).a
 const markersLayer = L.layerGroup().addTo(map);
 let allRows=[], visibleMarkers={}, pinnedMarker=null;
 const STATUS_COLORS = {};
-const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888'];
+const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888','#8E44AD','#16A085','#E74C3C','#F1C40F','#3498DB'];
 
 // --- Cluster polygon layer ---
 const clusterColors = {}; // color per cluster
@@ -95,10 +95,9 @@ const geojsonLayer = new L.GeoJSON.AJAX('smartcluster.geojson', {
   }
 }).addTo(map);
 
-// --- Marker icon with zoom scaling ---
-function getMarkerIcon(status, zoom) {
-  const baseSize = 8;
-  const size = baseSize * Math.pow(1.25, zoom - 6);
+// --- Marker icon (fixed size) ---
+function getMarkerIcon(status) {
+  const size = 12;
   const color = STATUS_COLORS[status] || '#888';
   return L.divIcon({
     className: '',
@@ -142,7 +141,7 @@ function render(){
     if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
 
     if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status] = DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length % DEFAULT_STATUS_COLORS.length];
-    const icon = getMarkerIcon(r.status, map.getZoom());
+    const icon = getMarkerIcon(r.status);
 
     const popupHtml = `<div style="min-width:220px">
       <strong>${r.site_name}</strong><br/>
@@ -171,16 +170,6 @@ function render(){
 
   generateLegend();
 }
-
-// --- Zoom scaling ---
-function updateMarkerSizes() {
-  const zoom = map.getZoom();
-  for(const key in visibleMarkers){
-    const row = allRows.find(r => 'row'+r._rowIndex === key);
-    if(row) visibleMarkers[key].setIcon(getMarkerIcon(row.status, zoom));
-  }
-}
-map.on('zoomend', updateMarkerSizes);
 
 // --- Legend and marker color ---
 function generateLegend(){
@@ -213,7 +202,7 @@ function updateMarkerColors(status,newColor){
   for(const key in visibleMarkers){
     const m = visibleMarkers[key];
     const row = allRows.find(r=>'row'+r._rowIndex === key);
-    if(row && row.status===status) m.setIcon(getMarkerIcon(status,map.getZoom()));
+    if(row && row.status===status) m.setIcon(getMarkerIcon(status));
   }
 }
 
