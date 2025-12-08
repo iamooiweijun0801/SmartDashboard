@@ -16,9 +16,29 @@ html, body { margin:0; height:100%; font-family: Arial; background:#e0eaff; colo
 #map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); border:2px solid rgba(0,0,0,0.3); position:relative; }
 h2{ margin-bottom:12px; font-weight:700; font-size:1.4em; color:#1a1a1a; }
 label{ font-weight:600; color:#333; margin-bottom:6px; }
-select, input[type=text], button{ padding:8px 10px; border-radius:var(--radius); border:1px solid #ccc; margin-bottom:12px; width:100%; box-sizing:border-box; font-size:16px; }
-button{ cursor:pointer; background:#2F80ED; color:white; font-weight:600; border:none; transition:0.2s; }
+
+/* Inputs & buttons */
+select, input[type=text] {
+  padding:8px 10px; 
+  border-radius:var(--radius); 
+  border:1px solid #ccc; 
+  margin-bottom:12px; 
+  width:100%; 
+  box-sizing:border-box; 
+  font-size:16px; 
+}
+button {
+  cursor:pointer; 
+  background:#2F80ED; 
+  color:white; 
+  font-weight:600; 
+  border:none; 
+  transition:0.2s; 
+  padding:8px 16px; 
+  font-size:16px;
+}
 button:hover{ background:#1f5ab5; }
+
 .statRow{ display:flex; gap:12px; margin-bottom:12px; }
 .stat{ background:rgba(255,255,255,0.85); flex:1; padding:12px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center; transition:0.2s; }
 .stat:hover{ box-shadow:0 6px 18px rgba(0,0,0,0.15); transform:translateY(-2px); }
@@ -44,10 +64,9 @@ button:hover{ background:#1f5ab5; }
 
     <!-- Exact site search -->
     <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
-  <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1; font-size:16px; padding:8px;" />
-  <button id="siteFindBtn" style="padding:8px 16px; font-size:16px;">Find</button>
-</div>
-
+      <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1; font-size:16px; padding:8px;" />
+      <button id="siteFindBtn">Find</button>
+    </div>
 
     <div class="statRow">
       <div class="stat">
@@ -215,14 +234,14 @@ function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match
 
 // --- Exact site find, case-insensitive ---
 function findSite(){
-  const searchText = document.getElementById('siteSearch').value.trim().toLowerCase(); // lowercase
+  const searchText = document.getElementById('siteSearch').value.trim().toLowerCase();
   if(!searchText) return;
 
   let found = false;
   for(const key in visibleMarkers){
     const marker = visibleMarkers[key];
     const row = allRows[parseInt(key.replace('row',''))];
-    if(row.site_name.toLowerCase() === searchText){  // case-insensitive exact match
+    if(row.site_name.toLowerCase() === searchText){
       if(pinnedMarker && pinnedMarker!==marker) pinnedMarker.closePopup();
       pinnedMarker = marker;
       marker.openPopup();
