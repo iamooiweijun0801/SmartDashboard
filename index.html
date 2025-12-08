@@ -74,6 +74,11 @@ let allRows=[], visibleMarkers={}, pinnedMarker=null;
 const STATUS_COLORS = {};
 const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888'];
 
+const CLUSTER_COLORS = {};
+const DEFAULT_CLUSTER_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#00CED1','#C71585','#9370DB','#FFD700','#40E0D0'];
+let geoLayer = null;
+
+// --- Marker Functions ---
 function dotIcon(color){
   return L.divIcon({className:'', html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
 }
@@ -140,6 +145,7 @@ function render(){
   generateLegend();
 }
 
+// --- Legend Functions ---
 function animateValue(id, start, end, total){
   const obj=document.getElementById(id); if(!obj) return;
   let startTimestamp=null;
@@ -193,7 +199,46 @@ function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match
 document.getElementById('clusterSelect').addEventListener('change',render);
 document.getElementById('sniperBtn').addEventListener('click',render);
 
-// Auto-refresh CSV
+// --- Load GeoJSON Polygons ---
+async function loadGeoJSON() {
+  try {
+    const response = await fetch("smartcluster.geojson");
+    const data = await response.json();
+
+    if(geoLayer) map.removeLayer(geoLayer);
+
+    geoLayer = L.geoJSON(data, {
+      style: function(feature) {
+        const cluster = feature.properties.Cluster || "Unknown";
+        if (!CLUSTER_COLORS[cluster]) {
+          const keys = Object.keys(CLUSTER_COLORS);
+          CLUSTER_COLORS[cluster] = DEFAULT_CLUSTER_COLORS[keys.length % DEFAULT_CLUSTER_COLORS.length];
+        }
+        return {
+          color: CLUSTER_COLORS[cluster],    
+          weight: 2,
+          fillColor: CLUSTER_COLORS[cluster], 
+          fillOpacity: 0.3                   
+        };
+      },
+      onEachFeature: function(feature, layer) {
+        if (feature.properties) {
+          layer.bindPopup(
+            "<b>Cluster Polygon</b><br>" +
+            Object.entries(feature.properties)
+              .map(([k,v]) => `${k}: ${v}`)
+              .join("<br>")
+          );
+        }
+      }
+    }).addTo(map);
+
+  } catch(err) {
+    console.error("Failed loading GeoJSON:", err);
+  }
+}
+
+// --- Auto-refresh CSV ---
 const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?gid=0&single=true&output=csv';
 let lastCsvText=null;
 async function smartFetchCsv(){
@@ -206,6 +251,9 @@ async function smartFetchCsv(){
 }
 smartFetchCsv();
 setInterval(smartFetchCsv,30000);
+
+// Load GeoJSON
+loadGeoJSON();
 </script>
 </body>
 </html>
