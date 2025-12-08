@@ -66,23 +66,29 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
 
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
+// --- Map setup ---
 const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+// --- Layers ---
 const markersLayer = L.layerGroup().addTo(map);
+let geoLayer = null;
+
+// --- Data ---
 let allRows=[], visibleMarkers={}, pinnedMarker=null;
 const STATUS_COLORS = {};
 const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888'];
+const CLUSTER_COLORS = {}; // each cluster gets a unique color
 
-const CLUSTER_COLORS = {};
-const DEFAULT_CLUSTER_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#00CED1','#C71585','#9370DB','#FFD700','#40E0D0'];
-let geoLayer = null;
-
-// --- Marker Functions ---
+// --- Marker icon ---
 function dotIcon(color){
   return L.divIcon({className:'', html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
 }
 
+// --- CSV loading ---
 function loadCsvText(text){
   const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
   allRows = parsed.data.map((r,i)=>({
@@ -97,6 +103,7 @@ function loadCsvText(text){
   render();
 }
 
+// --- Cluster filter ---
 function populateClusterFilter(){
   const clusterSet = new Set(allRows.map(r=>r.cluster).filter(c=>c));
   const select = document.getElementById('clusterSelect');
@@ -104,6 +111,7 @@ function populateClusterFilter(){
   clusterSet.forEach(c=>{ const o=document.createElement('option'); o.value=c;o.textContent=c;select.appendChild(o); });
 }
 
+// --- Render function ---
 function render(){
   markersLayer.clearLayers(); visibleMarkers={};
   const bounds=[], selectedCluster=document.getElementById('clusterSelect').value;
@@ -145,7 +153,7 @@ function render(){
   generateLegend();
 }
 
-// --- Legend Functions ---
+// --- Animate numbers ---
 function animateValue(id, start, end, total){
   const obj=document.getElementById(id); if(!obj) return;
   let startTimestamp=null;
@@ -160,6 +168,7 @@ function animateValue(id, start, end, total){
   window.requestAnimationFrame(step);
 }
 
+// --- Legend ---
 function generateLegend(){
   const legendContainer = document.getElementById('legendContainer');
   legendContainer.innerHTML = '';
@@ -196,47 +205,35 @@ function updateMarkerColors(status,newColor){
 
 function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match(/\d+/g).map(Number); return '#'+nums.map(n=>n.toString(16).padStart(2,'0')).join(''); }
 
+// --- Cluster polygons ---
+async function loadGeoJSON(){
+  const res = await fetch('./smartcluster.geojson');
+  const data = await res.json();
+
+  data.features.forEach((f,i)=>{
+    const cluster = f.properties.Cluster || "Unknown";
+    if(!CLUSTER_COLORS[cluster]) CLUSTER_COLORS[cluster] = DEFAULT_STATUS_COLORS[Object.keys(CLUSTER_COLORS).length % DEFAULT_STATUS_COLORS.length];
+  });
+
+  geoLayer = L.geoJSON(data,{
+    style: f=>{
+      const cluster = f.properties.Cluster || "Unknown";
+      return {
+        color: CLUSTER_COLORS[cluster],
+        weight: 2,
+        fillColor: CLUSTER_COLORS[cluster],
+        fillOpacity: 0.3
+      };
+    },
+    onEachFeature: (feature, layer)=>{
+      const clusterName = feature.properties.Cluster || "Unknown";
+      layer.bindPopup(`<b>Cluster:</b> ${clusterName}`);
+    }
+  }).addTo(map);
+}
+
 document.getElementById('clusterSelect').addEventListener('change',render);
 document.getElementById('sniperBtn').addEventListener('click',render);
-
-// --- Load GeoJSON Polygons ---
-async function loadGeoJSON() {
-  try {
-    const response = await fetch("smartcluster.geojson");
-    const data = await response.json();
-
-    if(geoLayer) map.removeLayer(geoLayer);
-
-    geoLayer = L.geoJSON(data, {
-      style: function(feature) {
-        const cluster = feature.properties.Cluster || "Unknown";
-        if (!CLUSTER_COLORS[cluster]) {
-          const keys = Object.keys(CLUSTER_COLORS);
-          CLUSTER_COLORS[cluster] = DEFAULT_CLUSTER_COLORS[keys.length % DEFAULT_CLUSTER_COLORS.length];
-        }
-        return {
-          color: CLUSTER_COLORS[cluster],    
-          weight: 2,
-          fillColor: CLUSTER_COLORS[cluster], 
-          fillOpacity: 0.3                   
-        };
-      },
-      onEachFeature: function(feature, layer) {
-        if (feature.properties) {
-          layer.bindPopup(
-            "<b>Cluster Polygon</b><br>" +
-            Object.entries(feature.properties)
-              .map(([k,v]) => `${k}: ${v}`)
-              .join("<br>")
-          );
-        }
-      }
-    }).addTo(map);
-
-  } catch(err) {
-    console.error("Failed loading GeoJSON:", err);
-  }
-}
 
 // --- Auto-refresh CSV ---
 const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?gid=0&single=true&output=csv';
@@ -252,7 +249,7 @@ async function smartFetchCsv(){
 smartFetchCsv();
 setInterval(smartFetchCsv,30000);
 
-// Load GeoJSON
+// --- Load clusters ---
 loadGeoJSON();
 </script>
 </body>
