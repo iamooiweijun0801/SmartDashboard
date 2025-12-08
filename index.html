@@ -26,7 +26,7 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
 .legend .item{ display:flex; align-items:center; cursor:pointer; }
 .legend .color{ width:16px; height:16px; border-radius:50%; margin-right:8px; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,0.25); }
 #details{ font-size:14px; color:#222; margin-top:8px; padding:8px; border-radius:var(--radius); background:rgba(255,255,255,0.7); box-shadow:0 4px 12px rgba(0,0,0,0.08); min-height:80px; }
-.map-sniper-btn{position:absolute;bottom:20px;right:20px;z-index:9999;width:50px;height:50px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #444;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
+.map-sniper-btn{position:absolute;bottom:20px;right:20px;z-index:9999;width:50px;height:50px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #444;box-shadow:0 2px 8px rgba(0,0,0,0.25); }
 .map-sniper-btn img{width:28px;height:28px;}
 .map-sniper-btn:hover{transform:translateY(-4px);box-shadow:0 6px 18px rgba(0,0,0,0.28);}
 </style>
@@ -66,8 +66,7 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
 
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-ajax"></script>
-
+<script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
 <script>
 const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
@@ -76,49 +75,51 @@ let allRows=[], visibleMarkers={}, pinnedMarker=null;
 const STATUS_COLORS = {};
 const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888'];
 
-// Polygon clusters
-const clusterColors = {};
-const DEFAULT_CLUSTER_COLORS = [
-  '#ff6666','#66ff66','#6699ff','#ffcc66','#cc66ff','#66ffff','#ff66cc',
-  '#996633','#ff9966','#66cc99','#9966cc','#ffcc99','#66ccff','#cc9966'
-];
-let polygonsLayer = L.layerGroup().addTo(map);
+// --- Cluster polygon layer ---
+const clusterColors = {}; // color per cluster
+const geojsonLayer = new L.GeoJSON.AJAX('smartcluster.geojson', {
+  style: feature => {
+    const name = feature.properties.Name || 'Cluster';
+    if(!clusterColors[name]){
+      const i = Object.keys(clusterColors).length;
+      clusterColors[name] = DEFAULT_STATUS_COLORS[i % DEFAULT_STATUS_COLORS.length];
+    }
+    return {
+      color: clusterColors[name],
+      weight: 2,
+      fillOpacity: 0.3
+    };
+  },
+  onEachFeature: (feature, layer) => {
+    layer.bindPopup(`<strong>${feature.properties.Name || 'Cluster'}</strong>`);
+  }
+}).addTo(map);
 
-// Dynamic marker sizing
-function dotIcon(color){
-  const zoom = map.getZoom();
-  const size = Math.max(4, Math.min(14, zoom)); // adjust min/max size
-  return L.divIcon({className:'', html:`<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[size,size], iconAnchor:[size/2,size/2], popupAnchor:[0,-10]});
+// --- Marker icon with zoom scaling ---
+function getMarkerIcon(status, zoom) {
+  const baseSize = 8;
+  const size = baseSize * Math.pow(1.25, zoom - 6);
+  const color = STATUS_COLORS[status] || '#888';
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+    popupAnchor: [0, -10]
+  });
 }
 
-map.on('zoomend', () => {
-  const zoom = map.getZoom();
-  const size = Math.max(4, Math.min(14, zoom)); // marker size based on zoom
-  for (const key in visibleMarkers) {
-    const row = allRows.find(r => 'row' + r._rowIndex === key);
-    if (row) {
-      visibleMarkers[key].setIcon(L.divIcon({
-        className: '',
-        html: `<div style="width:${size}px;height:${size}px;background:${STATUS_COLORS[row.status]};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
-        iconSize: [size, size],
-        iconAnchor: [size/2, size/2],
-        popupAnchor: [0, -10]
-      }));
-    }
-  }
-});
-
-
+// --- CSV Loading ---
 function loadCsvText(text){
   const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
-  allRows = parsed.data.map((r,i)=>(({
+  allRows = parsed.data.map((r,i)=>({
     _rowIndex:i,
     site_name:(r['Site Name']||'').trim(),
     cluster:(r['Cluster']||'').trim(),
     status:(r['Status']||'').trim(),
     lat:parseFloat((r['Latitude']||'').replace(/,/g,'.'))||NaN,
     lon:parseFloat((r['Longitude']||'').replace(/,/g,'.'))||NaN
-  })));
+  }));
   populateClusterFilter();
   render();
 }
@@ -130,6 +131,7 @@ function populateClusterFilter(){
   clusterSet.forEach(c=>{ const o=document.createElement('option'); o.value=c;o.textContent=c;select.appendChild(o); });
 }
 
+// --- Render ---
 function render(){
   markersLayer.clearLayers(); visibleMarkers={};
   const bounds=[], selectedCluster=document.getElementById('clusterSelect').value;
@@ -140,8 +142,7 @@ function render(){
     if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
 
     if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status] = DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length % DEFAULT_STATUS_COLORS.length];
-    const color = STATUS_COLORS[r.status];
-    const icon = dotIcon(color);
+    const icon = getMarkerIcon(r.status, map.getZoom());
 
     const popupHtml = `<div style="min-width:220px">
       <strong>${r.site_name}</strong><br/>
@@ -171,27 +172,22 @@ function render(){
   generateLegend();
 }
 
-// Animate numbers
-function animateValue(id, start, end, total){
-  const obj=document.getElementById(id); if(!obj) return;
-  let startTimestamp=null;
-  const duration=500;
-  const step=timestamp=>{
-    if(!startTimestamp) startTimestamp=timestamp;
-    const progress=Math.min((timestamp-startTimestamp)/duration,1);
-    const current=Math.floor(progress*(end-start)+start);
-    obj.textContent=total? `${current} / ${total}` : current;
-    if(progress<1) window.requestAnimationFrame(step);
-  };
-  window.requestAnimationFrame(step);
+// --- Zoom scaling ---
+function updateMarkerSizes() {
+  const zoom = map.getZoom();
+  for(const key in visibleMarkers){
+    const row = allRows.find(r => 'row'+r._rowIndex === key);
+    if(row) visibleMarkers[key].setIcon(getMarkerIcon(row.status, zoom));
+  }
 }
+map.on('zoomend', updateMarkerSizes);
 
-// Legend
+// --- Legend and marker color ---
 function generateLegend(){
   const legendContainer = document.getElementById('legendContainer');
   legendContainer.innerHTML = '';
   const statuses = Array.from(new Set(allRows.map(r=>r.status).filter(s=>s)));
-  
+
   statuses.forEach((status,i)=>{
     if(!STATUS_COLORS[status]) STATUS_COLORS[status] = DEFAULT_STATUS_COLORS[i % DEFAULT_STATUS_COLORS.length];
     const item = document.createElement('div'); item.className='item';
@@ -217,33 +213,17 @@ function updateMarkerColors(status,newColor){
   for(const key in visibleMarkers){
     const m = visibleMarkers[key];
     const row = allRows.find(r=>'row'+r._rowIndex === key);
-    if(row && row.status===status) m.setIcon(dotIcon(newColor));
+    if(row && row.status===status) m.setIcon(getMarkerIcon(status,map.getZoom()));
   }
 }
 
 function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match(/\d+/g).map(Number); return '#'+nums.map(n=>n.toString(16).padStart(2,'0')).join(''); }
 
+// --- Event listeners ---
 document.getElementById('clusterSelect').addEventListener('change',render);
 document.getElementById('sniperBtn').addEventListener('click',render);
 
-// Load polygons from GeoJSON
-fetch('smartcluster.geojson')
-  .then(r=>r.json())
-  .then(data=>{
-    polygonsLayer.clearLayers();
-    L.geoJSON(data, {
-      style: feature => {
-        const name = feature.properties.Name;
-        if(!clusterColors[name]) clusterColors[name] = DEFAULT_CLUSTER_COLORS[Object.keys(clusterColors).length % DEFAULT_CLUSTER_COLORS.length];
-        return {color: clusterColors[name], fillColor: clusterColors[name], fillOpacity: 0.3, weight: 2};
-      },
-      onEachFeature: (feature, layer) => {
-        layer.bindPopup(`<strong>Cluster:</strong> ${feature.properties.Name}`);
-      }
-    }).addTo(polygonsLayer);
-  });
-
-// Auto-refresh CSV
+// --- Auto-refresh CSV ---
 const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?gid=0&single=true&output=csv';
 let lastCsvText=null;
 async function smartFetchCsv(){
