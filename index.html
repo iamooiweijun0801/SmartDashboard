@@ -16,7 +16,7 @@ html, body { margin:0; height:100%; font-family: Arial; background:#e0eaff; colo
 #map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); border:2px solid rgba(0,0,0,0.3); position:relative; }
 h2{ margin-bottom:12px; font-weight:700; font-size:1.4em; color:#1a1a1a; }
 label{ font-weight:600; color:#333; margin-bottom:6px; }
-select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; margin-bottom:12px; }
+select, input[type=text]{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; margin-bottom:12px; width:100%; box-sizing:border-box; }
 .statRow{ display:flex; gap:12px; margin-bottom:12px; }
 .stat{ background:rgba(255,255,255,0.85); flex:1; padding:12px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center; transition:0.2s; }
 .stat:hover{ box-shadow:0 6px 18px rgba(0,0,0,0.15); transform:translateY(-2px); }
@@ -35,8 +35,14 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
 <div class="app">
   <div class="panel">
     <h2>Site Map Dashboard</h2>
+
+    <!-- Cluster filter -->
     <label for="clusterSelect">Filter by Cluster</label>
     <select id="clusterSelect"><option value="all">All Clusters</option></select>
+
+    <!-- Site search -->
+    <label for="siteSearch">Search by Site Name</label>
+    <input type="text" id="siteSearch" placeholder="Type site name..." />
 
     <div class="statRow">
       <div class="stat">
@@ -66,7 +72,7 @@ select{ padding:6px 10px; border-radius:var(--radius); border:1px solid #ccc; ma
 
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-ajax"></script> <!-- for GeoJSON loading -->
+<script src="https://unpkg.com/leaflet-ajax"></script>
 
 <script>
 const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
@@ -75,8 +81,6 @@ const markersLayer = L.layerGroup().addTo(map);
 let allRows=[], visibleMarkers={}, pinnedMarker=null;
 const STATUS_COLORS = {};
 const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888'];
-
-// Polygon clusters
 const clusterColors = {};
 const DEFAULT_CLUSTER_COLORS = [
   '#FF6633','#FFB399','#99FF99','#FF33FF','#FFFF99',
@@ -112,12 +116,15 @@ function populateClusterFilter(){
 
 function render(){
   markersLayer.clearLayers(); visibleMarkers={};
-  const bounds=[], selectedCluster=document.getElementById('clusterSelect').value;
+  const bounds=[];
+  const selectedCluster=document.getElementById('clusterSelect').value;
+  const siteSearchText=document.getElementById('siteSearch').value.toLowerCase();
   let doneCount=0,pendingCount=0;
 
   allRows.forEach(r=>{
     if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
     if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
+    if(siteSearchText && !r.site_name.toLowerCase().includes(siteSearchText)) return;
 
     if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status] = DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length % DEFAULT_STATUS_COLORS.length];
     const color = STATUS_COLORS[r.status];
@@ -204,6 +211,7 @@ function updateMarkerColors(status,newColor){
 function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match(/\d+/g).map(Number); return '#'+nums.map(n=>n.toString(16).padStart(2,'0')).join(''); }
 
 document.getElementById('clusterSelect').addEventListener('change',render);
+document.getElementById('siteSearch').addEventListener('input',render);
 document.getElementById('sniperBtn').addEventListener('click',render);
 
 // Load polygons from GeoJSON
