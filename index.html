@@ -79,14 +79,14 @@ const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500'
 // Polygon clusters
 const clusterColors = {};
 const DEFAULT_CLUSTER_COLORS = [
-  '#FF6633','#FFB399','#FF33FF','#FFFF99','#00B3E6',
-  '#E6B333','#3366E6','#999966','#99FF99','#B34D4D',
-  '#80B300','#809900','#E6B3B3','#6680B3','#66991A'
+  '#FF6633','#FFB399','#99FF99','#FF33FF','#FFFF99',
+  '#80B300','#E6B3B3','#6680B3','#809900','#66991A',
+  '#E6B333','#3366E6','#00B3E6','#999966','#B34D4D'
 ];
 let polygonsLayer = L.layerGroup().addTo(map);
 
 function dotIcon(color){
-  return L.divIcon({className:'', html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
+  return L.divIcon({className:'', html:`<div style="width:8px;height:8px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
 }
 
 function loadCsvText(text){
