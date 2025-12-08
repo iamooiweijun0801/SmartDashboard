@@ -91,14 +91,23 @@ function dotIcon(color){
   return L.divIcon({className:'', html:`<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[size,size], iconAnchor:[size/2,size/2], popupAnchor:[0,-10]});
 }
 
-map.on('zoomend', ()=>{
-  for(const key in visibleMarkers){
-    const row = allRows.find(r=>'row'+r._rowIndex === key);
-    if(row){
-      visibleMarkers[key].setIcon(dotIcon(STATUS_COLORS[row.status]));
+map.on('zoomend', () => {
+  const zoom = map.getZoom();
+  const size = Math.max(4, Math.min(14, zoom)); // marker size based on zoom
+  for (const key in visibleMarkers) {
+    const row = allRows.find(r => 'row' + r._rowIndex === key);
+    if (row) {
+      visibleMarkers[key].setIcon(L.divIcon({
+        className: '',
+        html: `<div style="width:${size}px;height:${size}px;background:${STATUS_COLORS[row.status]};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2],
+        popupAnchor: [0, -10]
+      }));
     }
   }
 });
+
 
 function loadCsvText(text){
   const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
