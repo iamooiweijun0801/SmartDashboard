@@ -74,12 +74,31 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).a
 const markersLayer = L.layerGroup().addTo(map);
 let allRows=[], visibleMarkers={}, pinnedMarker=null;
 const STATUS_COLORS = {};
-const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888'];
+// 15 unique colors for clusters
+const DEFAULT_CLUSTER_COLORS = [
+  '#FF6633','#FFB399','#FF33FF','#FFFF99','#00B3E6',
+  '#E6B333','#3366E6','#999966','#99FF99','#B34D4D',
+  '#80B300','#809900','#E6B3B3','#6680B3','#66991A'
+];
 
-// Polygon clusters
-const clusterColors = {};
-const DEFAULT_CLUSTER_COLORS = ['#ff6666','#66ff66','#6699ff','#ffcc66','#cc66ff','#66ffff','#ff66cc'];
-let polygonsLayer = L.layerGroup().addTo(map);
+fetch('smartcluster.geojson')
+  .then(r => r.json())
+  .then(data => {
+    polygonsLayer.clearLayers();
+    L.geoJSON(data, {
+      style: feature => {
+        const name = feature.properties.Name || 'Cluster';
+        if (!clusterColors[name]) {
+          const i = Object.keys(clusterColors).length;
+          clusterColors[name] = DEFAULT_CLUSTER_COLORS[i % DEFAULT_CLUSTER_COLORS.length];
+        }
+        return {color: clusterColors[name], fillColor: clusterColors[name], fillOpacity: 0.3, weight: 2};
+      },
+      onEachFeature: (feature, layer) => {
+        layer.bindPopup(`<strong>Cluster:</strong> ${feature.properties.Name || 'Cluster'}`);
+      }
+    }).addTo(polygonsLayer);
+  });
 
 function dotIcon(color){
   return L.divIcon({className:'', html:`<div style="width:12px;height:12px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
