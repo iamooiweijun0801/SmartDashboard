@@ -1,452 +1,498 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>LTE KPI Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.6.2/fuse.min.js"></script>
+<meta charset="utf-8" />
+<title>Interactive Sites Map</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-body { font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background:#f0f2f5; overflow-x:hidden; }
-header { text-align:center; padding:20px 0; font-size:32px; font-weight:bold; color:#2F80ED; background:white; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:16px; }
-.navbar { display:flex; justify-content:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
-.navbar button { padding:8px 16px; cursor:pointer; border:none; background:#2F80ED; color:white; border-radius:6px; font-weight:bold; transition:0.2s; }
-.navbar button:hover { background:#1f5ab5; }
-.tabs { display:flex; justify-content:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
-.tab { padding:10px 20px; cursor:pointer; border:1px solid #ccc; border-radius:8px; background:#eee; font-weight:bold; transition:0.3s; }
-.tab.active { background:#2F80ED; color:white; }
-.tab:hover:not(.active) { background:#d0e1ff; }
-.controls { display:flex; justify-content:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
-#siteFilter { padding:8px; width:250px; border-radius:6px; border:1px solid #ccc; }
-#dropdown { position:absolute; background:white; border:1px solid #ccc; max-height:150px; overflow-y:auto; display:none; z-index:10; width:250px; top:38px; left:0; border-radius:6px; }
-#dropdown div { padding:6px 10px; cursor:pointer; transition:0.2s; }
-#dropdown div:hover { background:#2F80ED; color:white; }
-#siteDropdownBtn { padding:8px 10px; cursor:pointer; border:1px solid #ccc; border-radius:6px; background:white; min-width:250px; text-align:left; position:relative; z-index:5; }
-#siteDropdownList { position:absolute; background:white; border:1px solid #ccc; max-height:200px; overflow-y:auto; display:none; z-index:10; width:250px; border-radius:6px; padding:6px; }
-
-button { padding:10px 18px; cursor:pointer; border:none; background:#2F80ED; color:white; border-radius:6px; font-weight:bold; transition:0.2s; }
-button:hover { background:#1f5ab5; }
-
-.chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:20px; padding:0 20px 20px 20px; }
-canvas { background:white; border-radius:12px; padding:16px; width:100% !important; height:250px !important; }
-.chart-card { padding:10px; border-radius:12px; background:white; box-shadow:0 2px 12px rgba(0,0,0,0.1); transition:0.3s; }
-.chart-card:hover { transform:translateY(-4px); box-shadow:0 6px 20px rgba(0,0,0,0.15); }
-.chart-title { text-align:center; font-weight:bold; margin-bottom:10px; color:#333; }
-
-/* Extra panels */
-.extraPanel { 
-  background:white; 
-  border-radius:12px; 
-  box-shadow:0 2px 12px rgba(0,0,0,0.1); 
-  padding:16px; 
-  display:flex; 
-  flex-direction:column; 
-  justify-content:center; 
-  align-items:center; 
+:root{
+  --shadow:0 8px 30px rgba(0,0,0,0.12);
+  --radius:12px;
+}
+html, body { margin:0; height:100%; font-family: Arial; background:#e0eaff; color:#222; font-size:14px; line-height:1.5; }
+.app{ display:grid; grid-template-columns:380px 1fr; gap:16px; height:100vh; padding:16px; box-sizing:border-box; }
+.panel{ background:#fff; border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:auto; }
+#map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); border:2px solid rgba(0,0,0,0.3); position:relative; }
+h2{ margin-bottom:12px; font-weight:700; font-size:1.4em; color:#1a1a1a; }
+label{ font-weight:600; color:#333; margin-bottom:6px; }
+select, input[type=text] {
+  padding:8px 10px; 
+  border-radius:var(--radius); 
+  border:1px solid #ccc; 
+  margin-bottom:12px; 
   width:100%; 
-  min-height:120px; 
-  transition:0.3s; 
+  box-sizing:border-box; 
+  font-size:16px; 
 }
-.extraPanel:hover { transform:translateY(-4px); box-shadow:0 6px 20px rgba(0,0,0,0.15); }
-.extraPanel .title { font-weight:bold; margin-bottom:8px; }
-.extraPanel .count { font-size:20px; font-weight:700; }
-
-/* Pop-up near legend */
-.legendPopup {
-  position:absolute; background:white; border:1px solid #ccc; border-radius:8px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:12px; z-index:1000;
+button {
+  cursor:pointer; 
+  background:#2F80ED; 
+  color:white; 
+  font-weight:600; 
+  border:none; 
+  transition:0.2s; 
+  padding:8px 16px; 
+  font-size:16px;
 }
+button:hover{ background:#1f5ab5; }
+.statRow{ display:flex; gap:12px; margin-bottom:12px; }
+.stat{ background:rgba(255,255,255,0.85); flex:1; padding:12px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center; transition:0.2s; }
+.stat:hover{ box-shadow:0 6px 18px rgba(0,0,0,0.15); transform:translateY(-2px); }
+.stat .small{ font-weight:500; color:#555; margin-bottom:4px; }
+.stat div[id]{ font-weight:700; font-size:20px; margin-top:4px; }
+.legend{ display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+.legend .item{ display:flex; align-items:center; gap:8px; cursor:pointer; }
+.legend .color{ width:16px; height:16px; border-radius:50%; margin-right:8px; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,0.25); flex-shrink:0; }
+.legend .sizeLabel{ font-size:12px; color:#666; margin-left:auto; }
+#details{ font-size:14px; color:#222; margin-top:8px; padding:8px; border-radius:var(--radius); background:rgba(255,255,255,0.7); box-shadow:0 4px 12px rgba(0,0,0,0.08); min-height:80px; }
+.map-sniper-btn{position:absolute;bottom:20px;right:20px;z-index:9999;width:50px;height:50px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #444;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
+.map-sniper-btn img{width:28px;height:28px;}
+.map-sniper-btn:hover{transform:translateY(-4px);box-shadow:0 6px 18px rgba(0,0,0,0.28);}
 
-/* Drawer */
-.kpiDrawer { 
-  position:fixed; top:0; right:0; width:320px; height:100%; background:white; 
-  box-shadow:-4px 0 12px rgba(0,0,0,0.15); transition:0.3s; z-index:20; padding:20px; 
-  overflow-y:auto; display:none; 
+/* Extra status panels container (below the two main stat boxes) */
+.extraStatusPanels { display:flex; gap:12px; margin-top:6px; flex-wrap:wrap; }
+.extraStatusPanels .smallPanel { background:rgba(255,255,255,0.92); padding:10px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.06); min-width:120px; text-align:center; }
+.smallPanel .label { font-weight:600; color:#444; margin-bottom:6px; }
+.smallPanel .count { font-weight:700; font-size:20px; color:#111; }
+
+/* Popup for color + size controls */
+.controlPopup {
+  position:fixed;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  background:white; padding:12px; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.2);
+  z-index:10000; display:flex; gap:12px; align-items:center;
 }
-.kpiDrawer.open { display:block; }
-.kpiDrawer h3 { margin-top:0; margin-bottom:12px; color:#2F80ED; }
-.kpiOption { margin-bottom:6px; }
-#applyAcceptanceBtn, #applyMonitoringBtn { margin-top:10px; width:100%; }
+.controlPopup label{ font-size:13px; margin-right:6px; color:#333; }
+.controlPopup .closeBtn { background:#e0e0e0; color:#222; padding:6px 8px; border-radius:6px; cursor:pointer; border:none; }
+.controlPopup .closeBtn:hover{ background:#ccc; }
 
-/* Minimal blue toggle button */
-.kpiDrawerToggle { position:fixed; top:20px; right:0; width:30px; height:80px; background:#2F80ED; border-radius:6px 0 0 6px; cursor:pointer; z-index:25; }
-.kpiDrawerToggle:hover { background:#1f5ab5; }
+/* hide native input color outline */
+input[type="color"] { border:none; padding:0; width:36px; height:36px; background:transparent; cursor:pointer; }
+
+/* small helper for size display */
+.sizeValue { min-width:34px; text-align:center; font-weight:700; }
 </style>
 </head>
 <body>
+<div class="app">
+  <div class="panel">
+    <h2>Site Map Dashboard</h2>
 
-<header>LTE KPI Dashboard</header>
+    <!-- Cluster filter -->
+    <label for="clusterSelect">Filter by Cluster</label>
+    <select id="clusterSelect"><option value="all">All Clusters</option></select>
 
-<!-- Navigation Buttons -->
-<div class="navbar">
-  <button onclick="window.location.href='index.html'">LTE</button>
-  <button onclick="window.location.href='gsm.html'">GSM</button>
-  <button onclick="window.location.href='nr.html'">NR</button>
-  <button onclick="window.location.href='nsa.html'">NSA</button>
-</div>
+    <!-- Exact site search -->
+    <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
+      <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1; font-size:16px; padding:8px; height:38px;" />
+      <button id="siteFindBtn" style="padding:0 16px; font-size:16px; height:38px;">Find</button>
+    </div>
 
-<div class="tabs">
-  <div class="tab active" data-tab="acceptance">Acceptance KPIs</div>
-  <div class="tab" data-tab="monitoring">Monitoring KPIs</div>
-</div>
+    <div class="statRow">
+      <div class="stat">
+        <div class="small">Completed / Total</div>
+        <div id="doneTotal">0 / 0</div>
+        <div class="small" id="donePct">0%</div>
+      </div>
+      <div class="stat">
+        <div class="small">Pending</div>
+        <div id="pendingCount">0</div>
+        <div class="small" id="totalCount">Total: 0</div>
+      </div>
+    </div>
 
-<div class="controls">
-  <div style="position:relative;">
-    <input type="text" id="siteFilter" placeholder="Search GBSC Name">
-    <div id="dropdown"></div>
+    <!-- New dynamic status panels (Q1: A) -->
+    <div class="extraStatusPanels" id="extraStatusPanels"></div>
+
+    <div class="legend" id="legendContainer"></div>
+    <div id="details">Hover or click a marker to see details here.</div>
   </div>
-  <div style="position:relative;">
-    <button id="siteDropdownBtn">All Sites ▼</button>
-    <div id="siteDropdownList"></div>
+
+  <div class="panel" style="padding:0;">
+    <div id="map">
+      <div id="sniperBtn" class="map-sniper-btn" title="Reset view">
+        <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" alt="Reset View">
+      </div>
+    </div>
   </div>
-  <button id="refreshBtn">Refresh Data</button>
 </div>
 
-<!-- Pages -->
-<div id="acceptancePage">
-  <div class="chart-grid" id="acceptanceChartContainer"></div>
-  <div class="chart-grid" id="extraPanelsContainer"></div>
-</div>
-<div id="monitoringPage" style="display:none;">
-  <div class="chart-grid" id="monitoringChartContainer"></div>
-  <div class="chart-grid" id="extraPanelsContainerMonitoring"></div>
-</div>
+<!-- color + size popup will be created dynamically -->
 
-<!-- KPI Drawers -->
-<div id="acceptanceDrawer" class="kpiDrawer">
-  <h3>KPIs</h3>
-  <div><input type="checkbox" id="selectAllAcceptance"> <label for="selectAllAcceptance"><b>Select All</b></label></div>
-  <div id="acceptanceKpiOptions"></div>
-  <button id="applyAcceptanceBtn">Apply</button>
-</div>
-<div id="monitoringDrawer" class="kpiDrawer">
-  <h3>KPIs</h3>
-  <div><input type="checkbox" id="selectAllMonitoring"> <label for="selectAllMonitoring"><b>Select All</b></label></div>
-  <div id="monitoringKpiOptions"></div>
-  <button id="applyMonitoringBtn">Apply</button>
-</div>
-
-<div id="drawerToggle" class="kpiDrawerToggle"></div>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-let allData=[], fuse=null, allSites=[];
-let selectedSites=[];
-let acceptanceKpisList=[], monitoringKpisList=[];
-let selectedAcceptanceKpis=[], selectedMonitoringKpis=[];
-const animationDuration=150;
-
-const acceptanceKpis = [
-  "LTE RRC Setup Success Rate","ERAB Setup Success Rate","LTE Call Setup Success Rate","E-RAB Call Drop Rate",
-  "CSFB Access Success Rate","LTE Intra Freq HO Success Rate","Intra-eNB HO Success Success Rate","Inter-eNBX2HO Success Rate",
-  "Inter-eNBS1HO Success Rate","Max RRC Connected Ue","DL Data Total Volume (Gbyte)","UL Data Total Volume (Gbyte)",
-  "E-RAB Setup Success Rate (VoIP)","Call Drop Rate (VoIP)","Intra-frequency Handover Out Success Rate(VoIP)",
-  "Inter-frequency Handover Out Success Rate(VoIP)","SRVCC Success Rate (L2W)","SRVCC Success Rate (L2G)"
-];
-const monitoringKpis = [
-  "Cell Availability Ratio","Average Latency Downlink (msecs)","DL PRB Utilization (%)","UL PRB Utilization (%)",
-  "LTE DL - Cell Average Throughput (Mbit/s)","LTE UL - Cell Average Thoughput (Mbit/s)","LTE DL -USER Average Throughput (Mbit/s)",
-  "LTE UL -USER Average Throughput (Mbit/s)","Downlink Packet Loss Rate (VoIP)","Uplink Packet Loss Rate (VoIP)",
-  "VoLTE Traffic Erlang","VoLTE Traffic DL (MB)","VoLTE Traffic UL (MB)","DL BLER QCI1","UL BLER QCI1"
+/* ========= State ========= */
+let allRows = [], visibleMarkers = {}, pinnedMarker = null, lastCsvText = "";
+const STATUS_COLORS = {};
+const STATUS_SIZES = {}; // px
+const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#A020F0','#FFFF00'];
+const DEFAULT_STATUS_SIZES = { /* default small = 8px */ };
+const clusterColors = {};
+const DEFAULT_CLUSTER_COLORS = [
+  '#FF6633','#FFB399','#99FF99','#FF33FF','#FFFF99',
+  '#80B300','#E6B3B3','#6680B3','#809900','#66991A',
+  '#E6B333','#3366E6','#00B3E6','#999966','#B34D4D'
 ];
 
-async function fetchData(){
-  const res = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vRIeWBt5CB8zpdFja0b3h2kodVsUrjD_PSHOkF93MkecZF04gWDoMXVq-q0REU-RvFQbjVggJVDLpUi/pub?gid=0&single=true&output=csv");
-  const text = await res.text();
-  const rows = text.trim().split('\n').map(r=>r.split(','));
-  const headers = rows.shift().map(h=>h.trim());
-  allData = rows.map(r=>{ const obj={}; headers.forEach((h,i)=>{ const val=r[i]?r[i].trim():"0"; obj[h]=isNaN(val)?val:parseFloat(val); }); return obj; });
-  fuse = new Fuse(allData,{ keys:['eNodeB Name'], threshold:0.4 });
-  allSites = [...new Set(allData.map(d=>d["eNodeB Name"]))].sort();
-  populateSiteDropdown();
-  populateKpiDrawers();
-  drawCurrentPageCharts();
-  renderExtraPanels(allData);
+/* load saved colors and sizes from localStorage */
+const savedColors = localStorage.getItem('markerColors');
+if (savedColors) try { Object.assign(STATUS_COLORS, JSON.parse(savedColors)); } catch(e){ console.warn('bad saved colors',e); }
+const savedSizes = localStorage.getItem('markerSizes');
+if (savedSizes) try { Object.assign(STATUS_SIZES, JSON.parse(savedSizes)); } catch(e){ console.warn('bad saved sizes',e); }
+
+/* ensure default size small = 8px when not set */
+const DEFAULT_SIZE_PX = 8;
+
+/* ========= Map setup ========= */
+const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
+L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map);
+const markersLayer = L.layerGroup().addTo(map);
+const polygonsLayer = L.layerGroup().addTo(map);
+
+/* ========= Helpers ========= */
+function smartParseLatLon(value) {
+  if (!value) return NaN;
+  value = value.toString().trim();
+  value = value.replace(/[^\d\.-]/g, "");
+  const parts = value.split(".");
+  if (parts.length > 2) value = parts[0] + "." + parts.slice(1).join("");
+  return parseFloat(value);
 }
 
-function renderExtraPanels(data){
-  const containerAccept = document.getElementById("extraPanelsContainer");
-  const containerMon = document.getElementById("extraPanelsContainerMonitoring");
-  [containerAccept, containerMon].forEach(container=>{
-    container.innerHTML="";
-    const statuses = [...new Set(data.map(d=>d.Status).filter(s=>s))];
-    statuses.forEach(status=>{
-      const count = data.filter(d=>d.Status===status).length;
-      const panel = document.createElement("div");
-      panel.className="extraPanel";
-      panel.innerHTML=`<div class="title">${status}</div><div class="count">${count}</div>`;
-      container.appendChild(panel);
-    });
+function dotIcon(color, sizePx) {
+  // sizePx = inner circle diameter
+  sizePx = Number(sizePx) || DEFAULT_SIZE_PX;
+  const outer = Math.max(12, sizePx + 6); // icon container size
+  const anchor = Math.round(outer/2);
+  const html = `<div style="
+    width:${sizePx}px;height:${sizePx}px;background:${color};border-radius:50%;
+    border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);
+    display:inline-block;
+    "></div>`;
+  return L.divIcon({ className:'', html, iconSize:[outer,outer], iconAnchor:[anchor,anchor], popupAnchor:[0,-(anchor+6)] });
+}
+
+function saveColorsToStorage(){ localStorage.setItem('markerColors', JSON.stringify(STATUS_COLORS)); }
+function saveSizesToStorage(){ localStorage.setItem('markerSizes', JSON.stringify(STATUS_SIZES)); }
+
+/* ========= CSV load & mapping ========= */
+function loadCsvText(text){
+  const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
+  allRows = parsed.data.map((r,i)=>({
+    _rowIndex:i,
+    site_name:(r['Site Name']||'').trim(),
+    cluster:(r['Cluster']||'').trim(),
+    status:(r['Status']||'').trim(),
+    lat: smartParseLatLon(r["Latitude"]),
+    lon: smartParseLatLon(r["Longitude"])
+  }));
+  populateClusterFilter();
+  render();
+}
+
+function populateClusterFilter(){
+  const clusterSet = new Set(allRows.map(r=>r.cluster).filter(c=>c));
+  const select = document.getElementById('clusterSelect');
+  select.innerHTML = '<option value="all">All Clusters</option>';
+  clusterSet.forEach(c=>{ const o=document.createElement('option'); o.value=c;o.textContent=c;select.appendChild(o); });
+}
+
+/* ========= Render ========= */
+function render(){
+  markersLayer.clearLayers(); visibleMarkers={};
+  const bounds=[]; 
+  const selectedCluster=document.getElementById('clusterSelect').value;
+  let doneCount=0, pendingCount=0;
+
+  allRows.forEach(r=>{
+    if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
+    if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
+
+    // ensure color & size exist for status
+    if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status] = DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length % DEFAULT_STATUS_COLORS.length];
+    if(!STATUS_SIZES[r.status]) STATUS_SIZES[r.status] = DEFAULT_SIZE_PX;
+
+    const color = STATUS_COLORS[r.status];
+    const size = STATUS_SIZES[r.status];
+    const icon = dotIcon(color, size);
+
+    const popupHtml = `<div style="min-width:220px">
+      <strong>${r.site_name}</strong><br/>
+      <em>Cluster:</em> ${r.cluster}<br/>
+      <em>Status:</em> ${r.status}
+    </div>`;
+
+    const m = L.marker([r.lat,r.lon],{icon});
+    m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
+    m.on('mouseover',()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
+    m.on('mouseout',()=>{ if(pinnedMarker!==m) m.closePopup(); });
+    m.on('click',()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
+
+    m.addTo(markersLayer);
+    visibleMarkers['row'+r._rowIndex]=m;
+    bounds.push([r.lat,r.lon]);
+
+    if(r.status==='Completed') doneCount++; else pendingCount++;
   });
+
+  animateValue('doneTotal',0,doneCount,doneCount+pendingCount);
+  animateValue('pendingCount',0,pendingCount);
+  document.getElementById('donePct').textContent = (doneCount+pendingCount)? Math.round(doneCount/(doneCount+pendingCount)*10000)/100+'%':'0%';
+  document.getElementById('totalCount').textContent = `Total: ${doneCount+pendingCount}`;
+
+  if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
+  generateLegend();
+  renderExtraStatusPanels(); // new panels
 }
 
-// SITE DROPDOWN
-function populateSiteDropdown(){
-  const list = document.getElementById("siteDropdownList");
-  list.innerHTML="";
-
-  // --- Select All ---
-  const selectAllDiv = document.createElement("div");
-  selectAllDiv.style.padding="6px 10px";
-  selectAllDiv.style.borderBottom="1px solid #ddd";
-  selectAllDiv.style.cursor="pointer";
-  selectAllDiv.innerHTML = `<b>Select All Sites</b>`;
-  selectAllDiv.onclick = () => {
-    selectedSites = allSites.slice();
-    list.querySelectorAll(".siteOption").forEach(c => c.checked = true);
-    updateSiteButtonLabel();
-    drawCurrentPageCharts();
+/* small numeric animation */
+function animateValue(id, start, end, total){
+  const obj=document.getElementById(id); if(!obj) return;
+  let startTimestamp=null;
+  const duration=500;
+  const step=timestamp=>{
+    if(!startTimestamp) startTimestamp=timestamp;
+    const progress=Math.min((timestamp-startTimestamp)/duration,1);
+    const current=Math.floor(progress*(end-start)+start);
+    obj.textContent=total? `${current} / ${total}` : current;
+    if(progress<1) window.requestAnimationFrame(step);
   };
-  list.appendChild(selectAllDiv);
-
-  // --- Clear Filter ---
-  const clearDiv = document.createElement("div");
-  clearDiv.style.padding="6px 10px";
-  clearDiv.style.borderBottom="1px solid #ddd";
-  clearDiv.style.cursor="pointer";
-  clearDiv.innerHTML = `<b>Clear Filter</b>`;
-  clearDiv.onclick = () => {
-    selectedSites = [];
-    list.querySelectorAll(".siteOption").forEach(c => c.checked = false);
-    updateSiteButtonLabel();
-    drawCurrentPageCharts();
-  };
-  list.appendChild(clearDiv);
-
-  allSites.forEach((site,i)=>{
-    const div=document.createElement("div");
-    div.innerHTML=
-      `<input type="checkbox" class="siteOption" id="site_${i}" value="${site}">
-       <label for="site_${i}">${site}</label>`;
-    div.style.padding="6px 10px";
-    list.appendChild(div);
-  });
-
-  document.getElementById("siteDropdownBtn").onclick = ()=>{
-    list.style.display = list.style.display==="block" ? "none" : "block";
-  };
-
-  list.querySelectorAll(".siteOption").forEach(chk=>{
-    chk.addEventListener("change", ()=>{
-      selectedSites = Array.from(list.querySelectorAll(".siteOption:checked")).map(c=>c.value);
-      updateSiteButtonLabel();
-      drawCurrentPageCharts();
-    });
-  });
+  window.requestAnimationFrame(step);
 }
 
-function updateSiteButtonLabel(){
-  const btn=document.getElementById("siteDropdownBtn");
-  if(selectedSites.length===0 || selectedSites.length===allSites.length){ btn.textContent="All Sites ▼"; }
-  else if(selectedSites.length===1){ btn.textContent=selectedSites[0]+" ▼"; }
-  else{ btn.textContent="Multiple Sites ▼"; }
-}
+/* ========= Legend (color + size controls) ========= */
+let currentControlStatus = null;
+function generateLegend(){
+  const legendContainer = document.getElementById('legendContainer');
+  legendContainer.innerHTML = '';
+  const statuses = Array.from(new Set(allRows.map(r=>r.status).filter(s=>s)));
 
-// KPI Drawers
-function populateKpiDrawers(){
-  function renderDrawer(kpiArr,idDrawer,idOptions,idSelectAll){
-    const drawer=document.getElementById(idDrawer);
-    const kpiDiv=document.getElementById(idOptions);
-    let tempSelected = kpiArr.slice();
-    const selectAllChk = document.getElementById(idSelectAll);
-    selectAllChk.checked=true;
-    selectAllChk.onchange=()=>{
-      if(selectAllChk.checked) tempSelected=kpiArr.slice();
-      else tempSelected=[];
-      renderOptions();
-    };
-    function renderOptions(){
-      kpiDiv.innerHTML="";
-      kpiArr.forEach(kpi=>{
-        const checked=tempSelected.includes(kpi)?"checked":"";
-        const div=document.createElement("div");
-        div.className="kpiOption";
-        div.innerHTML=`<input type="checkbox" class="kpiCheckbox" value="${kpi}" ${checked}> ${kpi}`;
-        kpiDiv.appendChild(div);
-      });
-      kpiDiv.querySelectorAll(".kpiCheckbox").forEach(chk=>{
-        chk.onchange=()=>{
-          tempSelected=Array.from(kpiDiv.querySelectorAll(".kpiCheckbox:checked")).map(c=>c.value);
-          selectAllChk.checked=tempSelected.length===kpiArr.length;
-        };
-      });
-    }
-    renderOptions();
-    return ()=>tempSelected.slice();
-  }
-  acceptanceKpisList = renderDrawer(acceptanceKpis,"acceptanceDrawer","acceptanceKpiOptions","selectAllAcceptance");
-  monitoringKpisList = renderDrawer(monitoringKpis,"monitoringDrawer","monitoringKpiOptions","selectAllMonitoring");
-}
+  statuses.forEach((status,i)=>{
+    if(!STATUS_COLORS[status]) STATUS_COLORS[status] = DEFAULT_STATUS_COLORS[i % DEFAULT_STATUS_COLORS.length];
+    if(!STATUS_SIZES[status]) STATUS_SIZES[status] = DEFAULT_SIZE_PX;
 
-// Drawer toggle
-document.getElementById("drawerToggle").addEventListener("click", ()=>{
-  const drawer = document.getElementById(currentTab+"Drawer");
-  if(drawer.style.display==="block"){
-    drawer.classList.remove("open");
-    setTimeout(()=>drawer.style.display="none",300);
-  } else {
-    drawer.style.display="block";
-    setTimeout(()=>drawer.classList.add("open"),10);
-  }
-});
+    const item = document.createElement('div'); item.className='item';
+    const colorDiv = document.createElement('div'); colorDiv.className='color';
+    colorDiv.setAttribute('data-status',status); colorDiv.style.background = STATUS_COLORS[status];
+    const label = document.createElement('div'); label.textContent = status;
+    const sizeLabel = document.createElement('div'); sizeLabel.className='sizeLabel'; sizeLabel.textContent = `${STATUS_SIZES[status]}px`;
 
-// Apply buttons
-document.getElementById("applyAcceptanceBtn").addEventListener("click",()=>{
-  selectedAcceptanceKpis=acceptanceKpisList();
-  document.getElementById("acceptanceDrawer").classList.remove("open");
-  setTimeout(()=>document.getElementById("acceptanceDrawer").style.display="none",300);
-  drawAcceptanceCharts();
-});
-document.getElementById("applyMonitoringBtn").addEventListener("click",()=>{
-  selectedMonitoringKpis=monitoringKpisList();
-  document.getElementById("monitoringDrawer").classList.remove("open");
-  setTimeout(()=>document.getElementById("monitoringDrawer").style.display="none",300);
-  drawMonitoringCharts();
-});
-
-// Tabs
-let currentTab="acceptance";
-document.querySelectorAll(".tab").forEach(tab=>{
-  tab.addEventListener("click",()=>{
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    tab.classList.add("active");
-    const tabName=tab.dataset.tab;
-    document.getElementById("acceptancePage").style.display=tabName==="acceptance"?"block":"none";
-    document.getElementById("monitoringPage").style.display=tabName==="monitoring"?"block":"none";
-    currentTab=tabName;
-    drawCurrentPageCharts();
-  });
-});
-
-function drawCurrentPageCharts(){
-  if(currentTab==="acceptance") drawAcceptanceCharts();
-  else drawMonitoringCharts();
-}
-
-function drawAcceptanceCharts(){ drawCharts(selectedAcceptanceKpis.length?selectedAcceptanceKpis:acceptanceKpis,"acceptanceChartContainer"); }
-function drawMonitoringCharts(){ drawCharts(selectedMonitoringKpis.length?selectedMonitoringKpis:monitoringKpis,"monitoringChartContainer"); }
-
-function drawCharts(kpis,containerId){
-  const container=document.getElementById(containerId);
-  container.innerHTML="";
-  const timeline = [...new Set(allData.map(d=>d["Date"]))];
-  timeline.sort((a,b)=>{
-    const [da,ma,ya]=a.split('/').map(Number);
-    const [db,mb,yb]=b.split('/').map(Number);
-    return new Date(ya,ma-1,da)-new Date(yb,mb-1,db);
-  });
-  const timelineLabels = timeline.map(d=>{
-    const [day,month]=d.split('/').map(Number);
-    const monthNames=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    return `${day} ${monthNames[month-1]}`;
-  });
-  kpis.forEach(kpi=>{
-    const card=document.createElement("div");
-    card.className="chart-card";
-    const title=document.createElement("div");
-    title.className="chart-title";
-
-    let labelText="All Sites";
-    if(selectedSites.length===1) labelText=selectedSites[0];
-    else if(selectedSites.length>1 && selectedSites.length<allSites.length) labelText="Multiple Sites";
-    title.textContent=`${kpi} - ${labelText}`;
-
-    const canvas=document.createElement("canvas");
-    card.appendChild(title);
-    card.appendChild(canvas);
-    container.appendChild(card);
-
-    let filteredData=allData;
-    if(selectedSites.length>0) filteredData=allData.filter(d=>selectedSites.includes(d["eNodeB Name"]));
-
-    const dataPoints=timeline.map(date=>{
-      const vals = filteredData.filter(d=>d["Date"]===date).map(d=>{
-        const v=d[kpi]; return (v===""||v==null||isNaN(v))?0:v;
-      });
-      if(vals.length===0) return 0;
-      if(kpi.toLowerCase().includes("%")||kpi.toLowerCase().includes("rate")||kpi.toLowerCase().includes("average")||kpi.toLowerCase().includes("ratio")){
-        return vals.reduce((a,b)=>a+b,0)/vals.length;
-      }else return vals.reduce((a,b)=>a+b,0);
+    // click to open control popup (color + size)
+    colorDiv.addEventListener('click', (ev)=>{
+      openControlPopup(status, colorDiv, sizeLabel);
     });
 
-    const chart = new Chart(canvas.getContext("2d"),{
-      type:'line',
-      data:{ labels:timelineLabels,datasets:[{label:labelText,data:dataPoints,borderColor:'#'+Math.floor(Math.random()*16777215).toString(16),fill:false,tension:0.3,pointRadius:3}] },
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        animation:{ x:{ type:'number', easing:'linear', duration:animationDuration, from:NaN, delay(ctx){ return ctx.index*10; } }, y:{duration:0} },
-        scales:{x:{display:true},y:{beginAtZero:true,ticks:{maxTicksLimit:6}}},
-        plugins:{
-          legend:{
-            position:'top',
-            onHover:(event, legendItem, legend)=>{ 
-              event.native.target.style.cursor='pointer'; 
-            },
-            onClick:(event, legendItem, legend)=>{
-              const datasetIndex = legendItem.datasetIndex;
-              const dataset = legend.chart.data.datasets[datasetIndex];
-              showLegendPopup(event.native, dataset);
-            }
-          },
-          tooltip:{enabled:true} // tooltip remains for normal hover
-        }
-      }
-    });
+    item.appendChild(colorDiv);
+    item.appendChild(label);
+    item.appendChild(sizeLabel);
+    legendContainer.appendChild(item);
   });
 }
 
-// Legend popup function
-function showLegendPopup(nativeEvent, dataset){
-  // Remove existing popup
-  document.querySelectorAll(".legendPopup").forEach(p=>p.remove());
-  
-  const popup=document.createElement("div");
-  popup.className="legendPopup";
-  popup.innerHTML=`<b>${dataset.label}</b><br>Data points: ${dataset.data.length}`;
+/* opens a small in-page popup with color input + size slider */
+function openControlPopup(status, colorDiv, sizeLabel){
+  closeControlPopup(); // only one at a time
+  currentControlStatus = status;
+
+  // create container
+  const popup = document.createElement('div');
+  popup.className = 'controlPopup';
+  popup.id = 'controlPopup';
+
+  // color input
+  const colorLabel = document.createElement('label'); colorLabel.textContent='Color:';
+  const colorInput = document.createElement('input'); colorInput.type='color';
+  colorInput.value = STATUS_COLORS[status] || '#000000';
+
+  // size slider
+  const sizeLabelEl = document.createElement('label'); sizeLabelEl.textContent='Size:';
+  const sizeInput = document.createElement('input'); sizeInput.type='range'; sizeInput.min=4; sizeInput.max=30; sizeInput.step=1;
+  sizeInput.value = STATUS_SIZES[status] || DEFAULT_SIZE_PX;
+
+  const sizeValue = document.createElement('div'); sizeValue.className='sizeValue'; sizeValue.textContent = sizeInput.value + 'px';
+
+  // close button
+  const closeBtn = document.createElement('button'); closeBtn.className='closeBtn'; closeBtn.textContent='Close';
+
+  // assemble
+  const colorWrap = document.createElement('div'); colorWrap.style.display='flex'; colorWrap.style.alignItems='center'; colorWrap.style.gap='8px';
+  colorWrap.appendChild(colorLabel); colorWrap.appendChild(colorInput);
+  const sizeWrap = document.createElement('div'); sizeWrap.style.display='flex'; sizeWrap.style.alignItems='center'; sizeWrap.style.gap='8px';
+  sizeWrap.appendChild(sizeLabelEl); sizeWrap.appendChild(sizeInput); sizeWrap.appendChild(sizeValue);
+
+  popup.appendChild(colorWrap);
+  popup.appendChild(sizeWrap);
+  popup.appendChild(closeBtn);
   document.body.appendChild(popup);
 
-  const rect = nativeEvent.target.getBoundingClientRect();
-  // Show above if enough space, else below
-  if(rect.top > 100){
-    popup.style.top = (rect.top - rect.height - 10) + "px";
-  } else {
-    popup.style.top = (rect.bottom + 10) + "px";
-  }
-  popup.style.left = rect.left + "px";
+  // event handlers
+  colorInput.addEventListener('input', (e)=>{
+    const v = e.target.value;
+    STATUS_COLORS[status] = v;
+    colorDiv.style.background = v;
+    saveColorsToStorage();
+    updateMarkerColors(status, v);
+  });
 
-  // Remove popup on next click anywhere
-  setTimeout(()=>{
-    document.addEventListener("click", function handler(){ popup.remove(); document.removeEventListener("click", handler); });
-  }, 50);
+  sizeInput.addEventListener('input', (e)=>{
+    const v = Number(e.target.value);
+    STATUS_SIZES[status] = v;
+    sizeValue.textContent = v + 'px';
+    sizeLabel.textContent = v + 'px';
+    saveSizesToStorage();
+    updateMarkerSizes(status, v);
+  });
+
+  closeBtn.addEventListener('click', ()=>{ closeControlPopup(); });
+
+  // close on outside click
+  setTimeout(()=>{ // allow creation first
+    window.addEventListener('click', outsideClickListener);
+  }, 10);
+
+  function outsideClickListener(e){
+    if(!popup.contains(e.target) && e.target !== colorDiv){
+      closeControlPopup();
+    }
+  }
 }
 
-// Fuzzy search
-const siteInput=document.getElementById("siteFilter");
-const dropdown=document.getElementById("dropdown");
-siteInput.addEventListener("input", ()=>{
-  const val=siteInput.value.trim();
-  if(!val || !fuse){ dropdown.style.display="none"; return; }
-  const results=fuse.search(val).slice(0,5).map(r=>r.item["eNodeB Name"]);
-  dropdown.innerHTML="";
-  results.forEach(r=>{
-    const div=document.createElement("div");
-    div.textContent=r;
-    div.onclick=()=>{
-      siteInput.value=r;
-      dropdown.style.display="none";
-      selectedSites=[r];
-      document.querySelectorAll(".siteOption").forEach(c=>c.checked=c.value===r);
-      updateSiteButtonLabel();
-      drawCurrentPageCharts();
-    };
-    dropdown.appendChild(div);
+function closeControlPopup(){
+  const existing = document.getElementById('controlPopup');
+  if(existing) existing.remove();
+  window.removeEventListener('click', ()=>{});
+  currentControlStatus = null;
+}
+
+function updateMarkerColors(status,newColor){
+  for(const key in visibleMarkers){
+    const m = visibleMarkers[key];
+    // find corresponding row
+    const idx = parseInt(key.replace('row',''),10);
+    const row = allRows[idx];
+    if(row && row.status===status) m.setIcon(dotIcon(newColor, STATUS_SIZES[status] || DEFAULT_SIZE_PX));
+  }
+}
+
+function updateMarkerSizes(status,newSize){
+  for(const key in visibleMarkers){
+    const m = visibleMarkers[key];
+    const idx = parseInt(key.replace('row',''),10);
+    const row = allRows[idx];
+    if(row && row.status===status) m.setIcon(dotIcon(STATUS_COLORS[status] || DEFAULT_STATUS_COLORS[0], newSize));
+  }
+}
+
+/* provide wrapper to update both if needed */
+function updateMarkerSizesAndColors(status){
+  const color = STATUS_COLORS[status];
+  const size = STATUS_SIZES[status] || DEFAULT_SIZE_PX;
+  updateMarkerColors(status, color);
+  updateMarkerSizes(status, size);
+}
+
+/* ========= Extra status panels =========
+   Show counts for statuses other than Completed and Pending.
+   Placed below the first two stat boxes.
+*/
+function renderExtraStatusPanels(){
+  const container = document.getElementById('extraStatusPanels');
+  container.innerHTML = '';
+  const counts = {};
+  allRows.forEach(r=>{
+    const s = r.status || 'Unknown';
+    counts[s] = (counts[s] || 0) + 1;
   });
-  dropdown.style.display=results.length?"block":"none";
-});
-document.addEventListener("click", e=>{ if(e.target!==siteInput) dropdown.style.display="none"; });
 
-document.getElementById("refreshBtn").addEventListener("click", fetchData);
+  // exclude Completed and Pending (keep first two panels unchanged)
+  const exclude = new Set(['Completed','Pending']);
+  const otherStatuses = Object.keys(counts).filter(s=>!exclude.has(s)).sort();
 
-fetchData();
+  otherStatuses.forEach(status=>{
+    const panel = document.createElement('div'); panel.className='smallPanel';
+    const label = document.createElement('div'); label.className='label'; label.textContent = status;
+    const count = document.createElement('div'); count.className='count'; count.textContent = counts[status];
+    panel.appendChild(label); panel.appendChild(count);
+    container.appendChild(panel);
+  });
+
+  // if none, keep container empty (no panels)
+}
+
+/* ========= Search & UI wiring ========= */
+function findSite(){
+  const searchText = document.getElementById('siteSearch').value.trim().toLowerCase();
+  if(!searchText) return;
+  let found=false;
+  for(const key in visibleMarkers){
+    const marker = visibleMarkers[key];
+    const idx = parseInt(key.replace('row',''),10);
+    const row = allRows[idx];
+    if(row && row.site_name && row.site_name.toLowerCase()===searchText){
+      if(pinnedMarker && pinnedMarker!==marker) pinnedMarker.closePopup();
+      pinnedMarker = marker;
+      marker.openPopup();
+      map.setView(marker.getLatLng(),16);
+      document.getElementById('details').innerHTML = `<div style="min-width:220px">
+        <strong>${row.site_name}</strong><br/>
+        <em>Cluster:</em> ${row.cluster}<br/>
+        <em>Status:</em> ${row.status}
+      </div>`;
+      found=true;
+      break;
+    }
+  }
+  if(!found) alert('Site not found!');
+}
+
+document.getElementById('clusterSelect').addEventListener('change',render);
+document.getElementById('siteFindBtn').addEventListener('click', findSite);
+document.getElementById('siteSearch').addEventListener('keypress', function(e){ if(e.key==='Enter') findSite(); });
+document.getElementById('sniperBtn').addEventListener('click', render);
+
+/* ========= Polygons ========= */
+fetch('smartcluster.geojson')
+  .then(r=>r.json())
+  .then(data=>{
+    polygonsLayer.clearLayers();
+    L.geoJSON(data, {
+      style: feature => {
+        const name = feature.properties.Name || 'Cluster';
+        if(!clusterColors[name]) clusterColors[name] = DEFAULT_CLUSTER_COLORS[Object.keys(clusterColors).length % DEFAULT_CLUSTER_COLORS.length];
+        return { color: clusterColors[name], fillColor: clusterColors[name], fillOpacity: 0.3, weight: 2 };
+      },
+      onEachFeature: (feature, layer) => {
+        layer.bindPopup(`<strong>Cluster:</strong> ${feature.properties.Name || 'Cluster'}`);
+      }
+    }).addTo(polygonsLayer);
+  }).catch(()=>{/* ignore if missing */});
+
+/* ========= CSV fetch auto-refresh ========= */
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?output=csv";
+
+async function smartFetchCsv(){
+  try{
+    const url = SHEET_CSV_URL + "&_t=" + Date.now();
+    const response = await fetch(url, { cache: "no-store" });
+    if(!response.ok) throw new Error('Network response not ok');
+    const csvText = await response.text();
+    if(csvText !== lastCsvText){
+      lastCsvText = csvText;
+      loadCsvText(csvText);
+    }
+  }catch(err){
+    console.error('CSV fetch error:', err);
+  }
+}
+
+/* start */
+smartFetchCsv();
+setInterval(smartFetchCsv, 30000);
+
 </script>
-
 </body>
 </html>
