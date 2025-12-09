@@ -124,7 +124,14 @@ L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
 const markersLayer = L.layerGroup().addTo(map);
 let allRows=[], visibleMarkers={}, pinnedMarker=null;
 const STATUS_COLORS = {};
-const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#FFA500','#888'];
+// Load saved colors from previous sessions
+const savedColors = localStorage.getItem('markerColors');
+if (savedColors) {
+  const parsed = JSON.parse(savedColors);
+  for (const key in parsed) STATUS_COLORS[key] = parsed[key];
+}
+
+const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#A020F0','#FFFF00'];
 const clusterColors = {};
 const DEFAULT_CLUSTER_COLORS = [
   '#FF6633','#FFB399','#99FF99','#FF33FF','#FFFF99',
@@ -229,14 +236,23 @@ function generateLegend(){
     colorDiv.setAttribute('data-status',status); colorDiv.style.background = STATUS_COLORS[status];
 
     colorDiv.addEventListener('click', ()=>{
-      const input = document.createElement('input'); input.type='color';
-      input.value = rgbToHex(window.getComputedStyle(colorDiv).backgroundColor);
-      input.style.position='fixed'; input.style.left='50%'; input.style.top='50%'; input.style.width='50px'; input.style.height='50px';
-      document.body.appendChild(input); input.click();
-      input.addEventListener('input',()=>{ STATUS_COLORS[status]=input.value; colorDiv.style.background=input.value; updateMarkerColors(status,input.value); });
-      input.addEventListener('change',()=>document.body.removeChild(input));
-      input.addEventListener('blur',()=>document.body.removeChild(input));
-    });
+  const input = document.createElement('input'); 
+  input.type = 'color';
+  input.value = STATUS_COLORS[status] || '#000000';
+  document.body.appendChild(input); 
+  input.click();
+
+  input.addEventListener('input', ()=>{
+    STATUS_COLORS[status] = input.value;
+    colorDiv.style.background = input.value;
+    updateMarkerColors(status, input.value);
+    // Save to localStorage so it persists
+    localStorage.setItem('markerColors', JSON.stringify(STATUS_COLORS));
+  });
+
+  input.addEventListener('change', ()=>document.body.removeChild(input));
+  input.addEventListener('blur', ()=>document.body.removeChild(input));
+});
 
     item.appendChild(colorDiv); item.appendChild(document.createTextNode(status));
     legendContainer.appendChild(item);
@@ -307,23 +323,13 @@ fetch('smartcluster.geojson')
 
 async function smartFetchCsv(){
   try{
-    const response = await fetch(SHEET_CSV_URL + "&_t=" + Date.now(), {
-      cache: "no-store"
-    });
-
-    if (!response.ok) throw new Error("Network response not ok");
-
-    const csvText = await response.text();
-
-    if (csvText !== lastCsvText) {
-      lastCsvText = csvText;
-      loadCsvText(csvText);
-    }
-
-  } catch (err) {
-    console.error("CSV fetch error:", err);
-  }
+    const response=await fetch(SHEET_CSV_URL);
+    if(!response.ok) throw new Error('Network response not ok');
+    const csvText=await response.text();
+    if(csvText!==lastCsvText){ lastCsvText=csvText; loadCsvText(csvText); }
+  }catch(err){ console.error('CSV fetch error:',err);}
 }
+
 
 smartFetchCsv();
 setInterval(smartFetchCsv,30000);
