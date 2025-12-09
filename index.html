@@ -100,6 +100,23 @@ button:hover{ background:#1f5ab5; }
 <script src="https://unpkg.com/leaflet-ajax"></script>
 
 <script>
+function smartParseLatLon(value) {
+  if (!value) return NaN;
+
+  value = value.toString().trim();
+
+  // Remove degree symbols, quotes, spaces
+  value = value.replace(/[^\d\.-]/g, "");
+
+  // Fix formats like "3.123.456" → "3.123456"
+  const parts = value.split(".");
+  if (parts.length > 2) {
+    value = parts[0] + "." + parts.slice(1).join("");
+  }
+
+  return parseFloat(value);
+}
+
 const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
 L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
     maxZoom: 20
@@ -127,8 +144,9 @@ function loadCsvText(text){
     site_name:(r['Site Name']||'').trim(),
     cluster:(r['Cluster']||'').trim(),
     status:(r['Status']||'').trim(),
-    lat:parseFloat((r['Latitude']||'').replace(/,/g,'.'))||NaN,
-    lon:parseFloat((r['Longitude']||'').replace(/,/g,'.'))||NaN
+    lat: smartParseLatLon(r["Latitude"]),
+lon: smartParseLatLon(r["Longitude"])
+
   })));
   populateClusterFilter();
   render();
