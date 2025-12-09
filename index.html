@@ -6,195 +6,338 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-:root{--shadow:0 8px 30px rgba(0,0,0,0.12); --radius:12px;}
-html, body { margin:0; height:100%; font-family: Arial; background:#e0eaff; color:#222; font-size:14px; line-height:1.5; }
-.app{ display:grid; grid-template-columns:380px 1fr; gap:16px; height:100vh; padding:16px; box-sizing:border-box; }
-.panel{ background:#fff; border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:auto; }
-#map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); border:2px solid rgba(0,0,0,0.3); position:relative; }
-h2{ margin-bottom:12px; font-weight:700; font-size:1.4em; color:#1a1a1a; }
-label{ font-weight:600; color:#333; margin-bottom:6px; }
-select, input[type=text] { padding:8px 10px; border-radius:var(--radius); border:1px solid #ccc; margin-bottom:12px; width:100%; box-sizing:border-box; font-size:16px; }
-button { cursor:pointer; background:#2F80ED; color:white; font-weight:600; border:none; transition:0.2s; padding:8px 16px; font-size:16px; }
-button:hover{ background:#1f5ab5; }
-.statRow{ display:flex; gap:12px; margin-bottom:12px; }
-.stat{ background:rgba(255,255,255,0.85); flex:1; padding:12px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center; transition:0.2s; }
-.stat:hover{ box-shadow:0 6px 18px rgba(0,0,0,0.15); transform:translateY(-2px); }
-.stat .small{ font-weight:500; color:#555; margin-bottom:4px; }
-.stat div[id]{ font-weight:700; font-size:20px; margin-top:4px; }
-.legend{ display:flex; flex-direction:column; gap:6px; margin-bottom:12px; position:relative; }
-.legend .item{ display:flex; align-items:center; gap:8px; cursor:pointer; }
-.legend .color{ width:16px; height:16px; border-radius:50%; margin-right:8px; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,0.25); flex-shrink:0; }
-#details{ font-size:14px; color:#222; margin-top:8px; padding:8px; border-radius:var(--radius); background:rgba(255,255,255,0.7); box-shadow:0 4px 12px rgba(0,0,0,0.08); min-height:80px; }
-.map-sniper-btn{position:absolute;bottom:20px;right:20px;z-index:9999;width:50px;height:50px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #444;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
-.map-sniper-btn img{width:28px;height:28px;}
-.map-sniper-btn:hover{transform:translateY(-4px);box-shadow:0 6px 18px rgba(0,0,0,0.28);}
-.extraStatusPanels { display:flex; gap:12px; margin-top:6px; flex-wrap:wrap; }
-.extraStatusPanels .smallPanel { background:rgba(255,255,255,0.92); padding:12px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.06); width:calc(50% - 6px); text-align:center; }
-.smallPanel .label { font-weight:600; color:#444; margin-bottom:6px; }
-.smallPanel .count { font-weight:700; font-size:20px; color:#111; }
-.controlPopup { position:absolute; background:white; padding:12px; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:10000; display:flex; gap:12px; align-items:center; }
-.controlPopup label{ font-size:13px; margin-right:6px; color:#333; }
-.controlPopup .closeBtn { background:#e0e0e0; color:#222; padding:6px 8px; border-radius:6px; cursor:pointer; border:none; }
-.controlPopup .closeBtn:hover{ background:#ccc; }
-input[type="color"] { border:none; padding:0; width:36px; height:36px; background:transparent; cursor:pointer; }
+:root{
+  --shadow:0 8px 30px rgba(0,0,0,0.12);
+  --radius:12px;
+}
+html,body{
+  margin:0;height:100%;font-family:Arial;background:#e0eaff;color:#222;
+}
+.app{
+  display:grid;grid-template-columns:380px 1fr;gap:16px;height:100vh;
+  padding:16px;box-sizing:border-box;
+}
+.panel{
+  background:#fff;border-radius:var(--radius);padding:16px;
+  box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:auto;
+}
+#map{
+  height:100%;border-radius:var(--radius);box-shadow:var(--shadow);
+  border:2px solid rgba(0,0,0,0.3);position:relative;
+}
+.statRow{
+  display:flex;gap:12px;margin-bottom:12px;
+}
+.stat{
+  background:#fff;flex:1;padding:12px;border-radius:var(--radius);
+  box-shadow:0 4px 12px rgba(0,0,0,0.08);text-align:center;
+}
+.stat .small{
+  font-weight:500;color:#555;margin-bottom:4px;
+}
+.legend{
+  display:flex;flex-direction:column;gap:6px;margin-top:20px;
+}
+.legend .item{
+  display:flex;align-items:center;cursor:pointer;
+}
+.legend .color{
+  width:16px;height:16px;border-radius:50%;margin-right:8px;
+  border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);
+}
+
+.details{
+  margin-top:10px;padding:10px;background:#fff;border-radius:var(--radius);
+}
+
+.marker-size-popup{
+  position:absolute;background:white;padding:10px;border-radius:10px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.2);z-index:9999;
+}
+
 </style>
 </head>
+
 <body>
 <div class="app">
   <div class="panel">
+
     <h2>Site Map Dashboard</h2>
-    <label for="clusterSelect">Filter by Cluster</label>
-    <select id="clusterSelect"><option value="all">All Clusters</option></select>
-    <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
-      <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1; font-size:16px; padding:8px; height:38px;" />
-      <button id="siteFindBtn" style="padding:0 16px; font-size:16px; height:38px;">Find</button>
+
+    <label>Filter by Cluster</label>
+    <select id="clusterSelect">
+      <option value="all">All Clusters</option>
+    </select>
+
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1;">
+      <button id="siteFindBtn">Find</button>
     </div>
+
+    <!-- FIRST ROW: Fixed Panels -->
     <div class="statRow">
-      <div class="stat">
-        <div class="small">Completed / Total</div>
-        <div id="doneTotal">0 / 0</div>
-        <div class="small" id="donePct">0%</div>
-      </div>
-      <div class="stat">
-        <div class="small">Pending</div>
-        <div id="pendingCount">0</div>
-        <div class="small" id="totalCount">Total: 0</div>
-      </div>
+      <div class="stat"><div class="small">Completed / Total</div><div id="doneTotal">0 / 0</div><div id="donePct" class="small">0%</div></div>
+      <div class="stat"><div class="small">Pending</div><div id="pendingCount">0</div><div class="small" id="totalCount">Total: 0</div></div>
     </div>
-    <div class="extraStatusPanels" id="extraStatusPanels"></div>
+
+    <!-- EXTRA STATUS PANELS GENERATED HERE -->
+    <div id="extraStatusPanels"></div>
+
+    <!-- LEGEND -->
     <div class="legend" id="legendContainer"></div>
-    <div id="details">Hover or click a marker to see details here.</div>
+
+    <div id="details" class="details">Hover a marker to see details here.</div>
+
   </div>
+
+  <!-- MAP PANEL -->
   <div class="panel" style="padding:0;">
-    <div id="map">
-      <div id="sniperBtn" class="map-sniper-btn" title="Reset view">
-        <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" alt="Reset View">
-      </div>
-    </div>
+    <div id="map"></div>
   </div>
 </div>
 
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-// --- State ---
-let allRows=[], visibleMarkers={}, pinnedMarker=null;
-const STATUS_COLORS={}, STATUS_SIZES={}, DEFAULT_STATUS_COLORS=['#66ff00','#2F80ED','#FF0000','#FF9900','#A020F0','#FFFF00'], DEFAULT_SIZE_PX=8;
 
-// --- Map ---
-const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
-L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map);
+<script>
+/* ------------------------------ CONFIG ------------------------------*/
+let allRows = [], visibleMarkers = {}, pinnedMarker = null, lastCsvText = "";
+const STATUS_COLORS = JSON.parse(localStorage.getItem('markerColors')||"{}");
+const STATUS_SIZES = JSON.parse(localStorage.getItem('markerSizes')||"{}");
+const DEFAULT_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#A020F0','#FFFF00'];
+
+/* ------------------------------ MAP ------------------------------*/
+const map = L.map('map',{preferCanvas:true}).setView([3,101.5],6);
+L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {maxZoom:20}).addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
 
-function smartParseLatLon(value){ if(!value) return NaN; value=value.toString().trim().replace(/[^\d\.-]/g,""); const parts=value.split("."); if(parts.length>2)value=parts[0]+"."+parts.slice(1).join(""); return parseFloat(value);}
-function dotIcon(color,sizePx){sizePx=Number(sizePx)||DEFAULT_SIZE_PX;const outer=Math.max(12,sizePx+6);const anchor=Math.round(outer/2);const html=`<div style="width:${sizePx}px;height:${sizePx}px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);display:inline-block;"></div>`; return L.divIcon({className:'',html,iconSize:[outer,outer],iconAnchor:[anchor,anchor],popupAnchor:[0,-(anchor+6)]});}
-
-// --- Load CSV ---
-function loadCsvText(text){
-  const parsed=Papa.parse(text,{header:true,skipEmptyLines:true});
-  allRows=parsed.data.map((r,i)=>({ _rowIndex:i, site_name:(r['Site Name']||'').trim(), cluster:(r['Cluster']||'').trim(), status:(r['Status']||'').trim(), lat: smartParseLatLon(r["Latitude"]), lon: smartParseLatLon(r["Longitude"]) }));
-  populateClusterFilter(); render();
-}
-function populateClusterFilter(){
-  const clusterSet=new Set(allRows.map(r=>r.cluster).filter(c=>c));
-  const select=document.getElementById('clusterSelect'); select.innerHTML='<option value="all">All Clusters</option>';
-  clusterSet.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; select.appendChild(o); });
+/* ------------------------------ MARKER ICON ------------------------------*/
+function dotIcon(color, size){
+  size = size || 8;
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:${size}px;height:${size}px;background:${color};
+          border-radius:50%;border:2px solid #fff;
+          box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
+    iconSize:[size+4, size+4],
+    iconAnchor:[(size+4)/2, (size+4)/2]
+  });
 }
 
-// --- Render ---
+/* ------------------------------ LOAD CSV ------------------------------*/
+function loadCsv(text){
+  const parsed = Papa.parse(text,{header:true,skipEmptyLines:true});
+  allRows = parsed.data.map((r,i)=>({
+    _i:i,
+    site:(r["Site Name"]||"").trim(),
+    cluster:(r["Cluster"]||"").trim(),
+    status:(r["Status"]||"").trim(),
+    lat:parseFloat(r["Latitude"]),
+    lon:parseFloat(r["Longitude"])
+  }));
+  populateCluster();
+  render();
+}
+
+function populateCluster(){
+  const sel=document.getElementById("clusterSelect");
+  sel.innerHTML='<option value="all">All Clusters</option>';
+  [...new Set(allRows.map(r=>r.cluster))].filter(x=>x).forEach(c=>{
+    sel.innerHTML+=`<option value="${c}">${c}</option>`;
+  });
+}
+
+document.getElementById("clusterSelect").addEventListener("change",render);
+
+/* ------------------------------ RENDER ------------------------------*/
 function render(){
-  markersLayer.clearLayers(); visibleMarkers={};
-  const bounds=[]; const selectedCluster=document.getElementById('clusterSelect').value;
-  let doneCount=0, pendingCount=0;
+  markersLayer.clearLayers();
+  visibleMarkers={};
+  
+  const clusterFilter=document.getElementById("clusterSelect").value;
+  const bounds=[];
+
+  let completed=0, pending=0;
+
+  const statusCounts={};
 
   allRows.forEach(r=>{
     if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
-    if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
-    if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status]=DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length%DEFAULT_STATUS_COLORS.length];
-    if(!STATUS_SIZES[r.status]) STATUS_SIZES[r.status]=DEFAULT_SIZE_PX;
+    if(clusterFilter!=='all' && r.cluster!==clusterFilter) return;
 
-    const icon=dotIcon(STATUS_COLORS[r.status],STATUS_SIZES[r.status]);
-    const popupHtml=`<div style="min-width:220px"><strong>${r.site_name}</strong><br/><em>Cluster:</em> ${r.cluster}<br/><em>Status:</em> ${r.status}</div>`;
-    const m=L.marker([r.lat,r.lon],{icon});
-    m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
-    m.on('mouseover',()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
-    m.on('mouseout',()=>{ if(pinnedMarker!==m) m.closePopup(); });
-    m.on('click',()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
-    m.addTo(markersLayer); visibleMarkers['row'+r._rowIndex]=m;
+    if(!STATUS_COLORS[r.status]){
+      STATUS_COLORS[r.status]=DEFAULT_COLORS[ Object.keys(STATUS_COLORS).length % DEFAULT_COLORS.length ];
+    }
+    if(!STATUS_SIZES[r.status]) STATUS_SIZES[r.status]=8;
+
+    if(r.status==="Completed") completed++;
+    else pending++;
+
+    statusCounts[r.status]=(statusCounts[r.status]||0)+1;
+
+    const marker=L.marker([r.lat,r.lon],{
+      icon:dotIcon(STATUS_COLORS[r.status], STATUS_SIZES[r.status])
+    });
+
+    const html=`<strong>${r.site}</strong><br>Cluster: ${r.cluster}<br>Status: ${r.status}`;
+    marker.bindPopup(html);
+
+    marker.on("mouseover",()=>{ marker.openPopup(); document.getElementById("details").innerHTML=html; });
+    marker.on("mouseout",()=>{ if(pinnedMarker!==marker) marker.closePopup(); });
+    marker.on("click",()=>{ if(pinnedMarker) pinnedMarker.closePopup(); pinnedMarker=marker; });
+
+    marker.addTo(markersLayer);
+    visibleMarkers["row"+r._i]=marker;
     bounds.push([r.lat,r.lon]);
-    if(r.status==='Completed') doneCount++; else pendingCount++;
   });
 
-  document.getElementById('doneTotal').textContent=`${doneCount} / ${doneCount+pendingCount}`;
-  document.getElementById('pendingCount').textContent=pendingCount;
-  document.getElementById('donePct').textContent=(doneCount+pendingCount)?Math.round(doneCount/(doneCount+pendingCount)*10000)/100+'%':'0%';
-  document.getElementById('totalCount').textContent=`Total: ${doneCount+pendingCount}`;
-  if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
-  generateLegend(); renderExtraStatusPanels();
+  updateMainStats(completed, pending);
+  buildExtraStatusPanels(statusCounts);
+
+  if(bounds.length){
+    const b=L.latLngBounds(bounds);
+    if(b.isValid()) map.fitBounds(b.pad(0.2));
+  }
+
+  buildLegend(statusCounts);
 }
 
-// --- Extra Panels ---
-function renderExtraStatusPanels(){
-  const container=document.getElementById('extraStatusPanels'); container.innerHTML='';
-  const counts={}; const selectedCluster=document.getElementById('clusterSelect').value;
-  allRows.forEach(r=>{ if(selectedCluster!=='all' && r.cluster!==selectedCluster) return; counts[r.status]=(counts[r.status]||0)+1; });
-  Object.keys(counts).filter(s=>!['Completed','Pending'].includes(s)).sort().forEach(status=>{
-    const panel=document.createElement('div'); panel.className='smallPanel';
-    const label=document.createElement('div'); label.className='label'; label.textContent=status;
-    const count=document.createElement('div'); count.className='count'; count.textContent=counts[status];
-    panel.appendChild(label); panel.appendChild(count); container.appendChild(panel);
+/* ------------------------------ MAIN PANELS ------------------------------*/
+function updateMainStats(done,pending){
+  const total=done+pending;
+  document.getElementById("doneTotal").innerText=`${done} / ${total}`;
+  document.getElementById("pendingCount").innerText=pending;
+  document.getElementById("donePct").innerText = total ? Math.round(done/total*100)+"%" : "0%";
+  document.getElementById("totalCount").innerText="Total: "+total;
+}
+
+/* ------------------------------ EXTRA STATUS PANELS ------------------------------*/
+function buildExtraStatusPanels(counts){
+  const container=document.getElementById("extraStatusPanels");
+  container.innerHTML='';
+
+  const excluded=["Completed","Pending"];
+
+  const list = Object.keys(counts).filter(s=>!excluded.includes(s));
+
+  let row;
+  list.forEach((status,i)=>{
+    if(i%2===0){
+      row=document.createElement("div");
+      row.className="statRow";
+      container.appendChild(row);
+    }
+    const div=document.createElement("div");
+    div.className="stat";
+    div.innerHTML=`<div class="small">${status}</div><div>${counts[status]}</div>`;
+    row.appendChild(div);
   });
 }
 
-// --- Legend ---
-let currentControlStatus=null;
-function generateLegend(){
-  const legendContainer=document.getElementById('legendContainer'); legendContainer.innerHTML='';
-  const statuses=Array.from(new Set(allRows.map(r=>r.status).filter(s=>s)));
-  statuses.forEach((status,i)=>{
-    if(!STATUS_COLORS[status]) STATUS_COLORS[status]=DEFAULT_STATUS_COLORS[i%DEFAULT_STATUS_COLORS.length];
-    const item=document.createElement('div'); item.className='item';
-    const colorDiv=document.createElement('div'); colorDiv.className='color'; colorDiv.style.background=STATUS_COLORS[status];
-    colorDiv.addEventListener('click',(ev)=>{ openControlPopup(status,colorDiv); });
-    const label=document.createElement('div'); label.textContent=status;
-    item.appendChild(colorDiv); item.appendChild(label); legendContainer.appendChild(item);
+/* ------------------------------ LEGEND ------------------------------*/
+function buildLegend(counts){
+  const legend=document.getElementById("legendContainer");
+  legend.innerHTML='';
+
+  Object.keys(counts).forEach(status=>{
+    const item=document.createElement("div");
+    item.className="item";
+
+    const colorBox=document.createElement("div");
+    colorBox.className="color";
+    colorBox.style.background=STATUS_COLORS[status];
+
+    colorBox.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      openLegendPopup(e.clientX, e.clientY, status, colorBox);
+    });
+
+    item.appendChild(colorBox);
+    item.appendChild(document.createTextNode(status));
+    legend.appendChild(item);
   });
 }
-function openControlPopup(status,colorDiv){
-  closeControlPopup(); currentControlStatus=status;
-  const rect=colorDiv.getBoundingClientRect();
-  const popup=document.createElement('div'); popup.className='controlPopup'; popup.id='controlPopup';
-  popup.style.top=(rect.bottom+window.scrollY+6)+'px';
-  popup.style.left=(rect.left+window.scrollX)+'px';
-  const colorLabel=document.createElement('label'); colorLabel.textContent='Color:';
-  const colorInput=document.createElement('input'); colorInput.type='color'; colorInput.value=STATUS_COLORS[status]||'#000000';
-  const closeBtn=document.createElement('button'); closeBtn.className='closeBtn'; closeBtn.textContent='Close';
-  popup.appendChild(colorLabel); popup.appendChild(colorInput); popup.appendChild(closeBtn); document.body.appendChild(popup);
-  colorInput.addEventListener('input',(e)=>{ STATUS_COLORS[status]=e.target.value; colorDiv.style.background=e.target.value; updateMarkerColors(status,e.target.value); localStorage.setItem('markerColors',JSON.stringify(STATUS_COLORS)); });
-  closeBtn.addEventListener('click',()=>{ closeControlPopup(); });
-  setTimeout(()=>{ window.addEventListener('click',outsideClickListener); },10);
-  function outsideClickListener(e){ if(!popup.contains(e.target) && e.target!==colorDiv) closeControlPopup(); }
-}
-function closeControlPopup(){ const existing=document.getElementById('controlPopup'); if(existing)existing.remove(); window.removeEventListener('click',()=>{}); currentControlStatus=null; }
-function updateMarkerColors(status,newColor){ for(const key in visibleMarkers){ const m=visibleMarkers[key]; const idx=parseInt(key.replace('row',''),10); const row=allRows[idx]; if(row && row.status===status) m.setIcon(dotIcon(newColor, STATUS_SIZES[status]||DEFAULT_SIZE_PX)); } }
 
-// --- UI ---
-document.getElementById('clusterSelect').addEventListener('change',render);
-document.getElementById('siteFindBtn').addEventListener('click',()=>{
-  const txt=document.getElementById('siteSearch').value.trim().toLowerCase();
-  if(!txt) return; let found=false;
-  for(const key in visibleMarkers){
-    const marker=visibleMarkers[key]; const idx=parseInt(key.replace('row',''),10); const row=allRows[idx];
-    if(row && row.site_name.toLowerCase()===txt){
-      if(pinnedMarker && pinnedMarker!==marker)pinnedMarker.closePopup();
-      pinnedMarker=marker; marker.openPopup(); map.setView(marker.getLatLng(),16);
-      document.getElementById('details').innerHTML=`<div style="min-width:220px"><strong>${row.site_name}</strong><br/><em>Cluster:</em> ${row.cluster}<br/><em>Status:</em> ${row.status}</div>`;
-      found=true; break;
+/* ------------------------------ POPUP: COLOR + SIZE ------------------------------*/
+let activePopup=null;
+
+function openLegendPopup(x,y,status,element){
+  if(activePopup){ activePopup.remove(); }
+
+  const rect=element.getBoundingClientRect();
+  const popup=document.createElement("div");
+  popup.className="marker-size-popup";
+  popup.style.left = rect.right + 10 + "px";
+  popup.style.top = rect.top + "px";
+
+  popup.innerHTML = `
+    <input type="color" id="colorInput" value="${STATUS_COLORS[status]}" style="width:100%;margin-bottom:10px;">
+    <input type="range" min="4" max="30" value="${STATUS_SIZES[status]}" id="sizeInput" style="width:100%;">
+  `;
+
+  document.body.appendChild(popup);
+  activePopup=popup;
+
+  popup.querySelector("#colorInput").addEventListener("input",e=>{
+    STATUS_COLORS[status]=e.target.value;
+    localStorage.setItem("markerColors",JSON.stringify(STATUS_COLORS));
+    render();
+  });
+
+  popup.querySelector("#sizeInput").addEventListener("input",e=>{
+    STATUS_SIZES[status]=parseInt(e.target.value);
+    localStorage.setItem("markerSizes",JSON.stringify(STATUS_SIZES));
+    render();
+  });
+
+  document.addEventListener("click", closePopupOutside);
+}
+
+function closePopupOutside(e){
+  if(activePopup && !activePopup.contains(e.target)){
+    activePopup.remove();
+    activePopup=null;
+    document.removeEventListener("click", closePopupOutside);
+  }
+}
+
+/* ------------------------------ SEARCH ------------------------------*/
+document.getElementById("siteFindBtn").addEventListener("click",findSite);
+document.getElementById("siteSearch").addEventListener("keypress",(e)=>{ if(e.key==="Enter") findSite();});
+
+function findSite(){
+  const t=document.getElementById("siteSearch").value.trim().toLowerCase();
+  if(!t) return;
+
+  for(let key in visibleMarkers){
+    const rowIndex=parseInt(key.replace("row",""));
+    const r=allRows[rowIndex];
+    if(r.site.toLowerCase()===t){
+      const m=visibleMarkers[key];
+      m.openPopup();
+      map.setView(m.getLatLng(),16);
+      return;
     }
   }
-  if(!found) alert('Site not found!');
-});
-document.getElementById('sniperBtn').addEventListener('click',()=>{ map.fitBounds(markersLayer.getBounds().pad(0.2)); });
+  alert("Site not found.");
+}
+
+/* ------------------------------ GOOGLE SHEET AUTO-FETCH ------------------------------*/
+async function fetchCsv(){
+  const url="https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?output=csv&_t="+Date.now();
+  try{
+    const r=await fetch(url,{cache:"no-store"});
+    const text=await r.text();
+    if(text!==lastCsvText){
+      lastCsvText=text;
+      loadCsv(text);
+    }
+  } catch(err){ console.error(err); }
+}
+
+fetchCsv();
+setInterval(fetchCsv, 30000);
+
 </script>
 </body>
 </html>
