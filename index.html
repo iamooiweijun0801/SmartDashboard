@@ -101,7 +101,9 @@ button:hover{ background:#1f5ab5; }
 
 <script>
 const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    maxZoom: 20
+}).addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
 let allRows=[], visibleMarkers={}, pinnedMarker=null;
 const STATUS_COLORS = {};
