@@ -10,333 +10,488 @@
   --shadow:0 8px 30px rgba(0,0,0,0.12);
   --radius:12px;
 }
-html,body{
-  margin:0;height:100%;font-family:Arial;background:#e0eaff;color:#222;
+html, body { margin:0; height:100%; font-family: Arial; background:#e0eaff; color:#222; font-size:14px; line-height:1.5; }
+.app{ display:grid; grid-template-columns:380px 1fr; gap:16px; height:100vh; padding:16px; box-sizing:border-box; }
+.panel{ background:#fff; border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:auto; }
+#map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); border:2px solid rgba(0,0,0,0.3); position:relative; }
+h2{ margin-bottom:12px; font-weight:700; font-size:1.4em; color:#1a1a1a; }
+label{ font-weight:600; color:#333; margin-bottom:6px; }
+select, input[type=text] {
+  padding:8px 10px; 
+  border-radius:var(--radius); 
+  border:1px solid #ccc; 
+  margin-bottom:12px; 
+  width:100%; 
+  box-sizing:border-box; 
+  font-size:16px; 
 }
-.app{
-  display:grid;grid-template-columns:380px 1fr;gap:16px;height:100vh;
-  padding:16px;box-sizing:border-box;
+button {
+  cursor:pointer; 
+  background:#2F80ED; 
+  color:white; 
+  font-weight:600; 
+  border:none; 
+  transition:0.2s; 
+  padding:8px 16px; 
+  font-size:16px;
 }
-.panel{
-  background:#fff;border-radius:var(--radius);padding:16px;
-  box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:auto;
-}
-#map{
-  height:100%;border-radius:var(--radius);box-shadow:var(--shadow);
-  border:2px solid rgba(0,0,0,0.3);position:relative;
-}
-.statRow{
-  display:flex;gap:12px;margin-bottom:12px;
-}
-.stat{
-  background:#fff;flex:1;padding:12px;border-radius:var(--radius);
-  box-shadow:0 4px 12px rgba(0,0,0,0.08);text-align:center;
-}
-.stat .small{
-  font-weight:500;color:#555;margin-bottom:4px;
-}
-.legend{
-  display:flex;flex-direction:column;gap:6px;margin-top:20px;
-}
-.legend .item{
-  display:flex;align-items:center;cursor:pointer;
-}
-.legend .color{
-  width:16px;height:16px;border-radius:50%;margin-right:8px;
-  border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);
-}
+button:hover{ background:#1f5ab5; }
+.statRow{ display:flex; gap:12px; margin-bottom:12px; }
+.stat{ background:rgba(255,255,255,0.85); flex:1; padding:12px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center; transition:0.2s; }
+.stat:hover{ box-shadow:0 6px 18px rgba(0,0,0,0.15); transform:translateY(-2px); }
+.stat .small{ font-weight:500; color:#555; margin-bottom:4px; }
+.stat div[id]{ font-weight:700; font-size:20px; margin-top:4px; }
+.legend{ display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+.legend .item{ display:flex; align-items:center; gap:8px; cursor:pointer; }
+.legend .color{ width:16px; height:16px; border-radius:50%; margin-right:8px; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,0.25); flex-shrink:0; }
+.legend .sizeLabel{ font-size:12px; color:#666; margin-left:auto; }
+#details{ font-size:14px; color:#222; margin-top:8px; padding:8px; border-radius:var(--radius); background:rgba(255,255,255,0.7); box-shadow:0 4px 12px rgba(0,0,0,0.08); min-height:80px; }
+.map-sniper-btn{position:absolute;bottom:20px;right:20px;z-index:9999;width:50px;height:50px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #444;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
+.map-sniper-btn img{width:28px;height:28px;}
+.map-sniper-btn:hover{transform:translateY(-4px);box-shadow:0 6px 18px rgba(0,0,0,0.28);}
 
-.details{
-  margin-top:10px;padding:10px;background:#fff;border-radius:var(--radius);
-}
+/* Extra status panels container (below the two main stat boxes) */
+.extraStatusPanels { display:flex; gap:12px; margin-top:6px; flex-wrap:wrap; }
+.extraStatusPanels .smallPanel { background:rgba(255,255,255,0.92); padding:10px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.06); min-width:120px; text-align:center; }
+.smallPanel .label { font-weight:600; color:#444; margin-bottom:6px; }
+.smallPanel .count { font-weight:700; font-size:20px; color:#111; }
 
-.marker-size-popup{
-  position:absolute;background:white;padding:10px;border-radius:10px;
-  box-shadow:0 4px 10px rgba(0,0,0,0.2);z-index:9999;
+/* Popup for color + size controls */
+.controlPopup {
+  position:fixed;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  background:white; padding:12px; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.2);
+  z-index:10000; display:flex; gap:12px; align-items:center;
 }
+.controlPopup label{ font-size:13px; margin-right:6px; color:#333; }
+.controlPopup .closeBtn { background:#e0e0e0; color:#222; padding:6px 8px; border-radius:6px; cursor:pointer; border:none; }
+.controlPopup .closeBtn:hover{ background:#ccc; }
 
+/* hide native input color outline */
+input[type="color"] { border:none; padding:0; width:36px; height:36px; background:transparent; cursor:pointer; }
+
+/* small helper for size display */
+.sizeValue { min-width:34px; text-align:center; font-weight:700; }
 </style>
 </head>
-
 <body>
 <div class="app">
   <div class="panel">
-
     <h2>Site Map Dashboard</h2>
 
-    <label>Filter by Cluster</label>
-    <select id="clusterSelect">
-      <option value="all">All Clusters</option>
-    </select>
+    <!-- Cluster filter -->
+    <label for="clusterSelect">Filter by Cluster</label>
+    <select id="clusterSelect"><option value="all">All Clusters</option></select>
 
-    <div style="display:flex; gap:8px; margin-bottom:12px;">
-      <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1;">
-      <button id="siteFindBtn">Find</button>
+    <!-- Exact site search -->
+    <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
+      <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1; font-size:16px; padding:8px; height:38px;" />
+      <button id="siteFindBtn" style="padding:0 16px; font-size:16px; height:38px;">Find</button>
     </div>
 
-    <!-- FIRST ROW: Fixed Panels -->
     <div class="statRow">
-      <div class="stat"><div class="small">Completed / Total</div><div id="doneTotal">0 / 0</div><div id="donePct" class="small">0%</div></div>
-      <div class="stat"><div class="small">Pending</div><div id="pendingCount">0</div><div class="small" id="totalCount">Total: 0</div></div>
+      <div class="stat">
+        <div class="small">Completed / Total</div>
+        <div id="doneTotal">0 / 0</div>
+        <div class="small" id="donePct">0%</div>
+      </div>
+      <div class="stat">
+        <div class="small">Pending</div>
+        <div id="pendingCount">0</div>
+        <div class="small" id="totalCount">Total: 0</div>
+      </div>
     </div>
 
-    <!-- EXTRA STATUS PANELS GENERATED HERE -->
-    <div id="extraStatusPanels"></div>
+    <!-- New dynamic status panels (Q1: A) -->
+    <div class="extraStatusPanels" id="extraStatusPanels"></div>
 
-    <!-- LEGEND -->
     <div class="legend" id="legendContainer"></div>
-
-    <div id="details" class="details">Hover a marker to see details here.</div>
-
+    <div id="details">Hover or click a marker to see details here.</div>
   </div>
 
-  <!-- MAP PANEL -->
   <div class="panel" style="padding:0;">
-    <div id="map"></div>
+    <div id="map">
+      <div id="sniperBtn" class="map-sniper-btn" title="Reset view">
+        <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" alt="Reset View">
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- color + size popup will be created dynamically -->
 
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-/* ------------------------------ CONFIG ------------------------------*/
+/* ========= State ========= */
 let allRows = [], visibleMarkers = {}, pinnedMarker = null, lastCsvText = "";
-const STATUS_COLORS = JSON.parse(localStorage.getItem('markerColors')||"{}");
-const STATUS_SIZES = JSON.parse(localStorage.getItem('markerSizes')||"{}");
-const DEFAULT_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#A020F0','#FFFF00'];
+const STATUS_COLORS = {};
+const STATUS_SIZES = {}; // px
+const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#A020F0','#FFFF00'];
+const DEFAULT_STATUS_SIZES = { /* default small = 8px */ };
+const clusterColors = {};
+const DEFAULT_CLUSTER_COLORS = [
+  '#FF6633','#FFB399','#99FF99','#FF33FF','#FFFF99',
+  '#80B300','#E6B3B3','#6680B3','#809900','#66991A',
+  '#E6B333','#3366E6','#00B3E6','#999966','#B34D4D'
+];
 
-/* ------------------------------ MAP ------------------------------*/
-const map = L.map('map',{preferCanvas:true}).setView([3,101.5],6);
-L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {maxZoom:20}).addTo(map);
+/* load saved colors and sizes from localStorage */
+const savedColors = localStorage.getItem('markerColors');
+if (savedColors) try { Object.assign(STATUS_COLORS, JSON.parse(savedColors)); } catch(e){ console.warn('bad saved colors',e); }
+const savedSizes = localStorage.getItem('markerSizes');
+if (savedSizes) try { Object.assign(STATUS_SIZES, JSON.parse(savedSizes)); } catch(e){ console.warn('bad saved sizes',e); }
+
+/* ensure default size small = 8px when not set */
+const DEFAULT_SIZE_PX = 8;
+
+/* ========= Map setup ========= */
+const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
+L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
+const polygonsLayer = L.layerGroup().addTo(map);
 
-/* ------------------------------ MARKER ICON ------------------------------*/
-function dotIcon(color, size){
-  size = size || 8;
-  return L.divIcon({
-    className:'',
-    html:`<div style="width:${size}px;height:${size}px;background:${color};
-          border-radius:50%;border:2px solid #fff;
-          box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
-    iconSize:[size+4, size+4],
-    iconAnchor:[(size+4)/2, (size+4)/2]
-  });
+/* ========= Helpers ========= */
+function smartParseLatLon(value) {
+  if (!value) return NaN;
+  value = value.toString().trim();
+  value = value.replace(/[^\d\.-]/g, "");
+  const parts = value.split(".");
+  if (parts.length > 2) value = parts[0] + "." + parts.slice(1).join("");
+  return parseFloat(value);
 }
 
-/* ------------------------------ LOAD CSV ------------------------------*/
-function loadCsv(text){
-  const parsed = Papa.parse(text,{header:true,skipEmptyLines:true});
+function dotIcon(color, sizePx) {
+  // sizePx = inner circle diameter
+  sizePx = Number(sizePx) || DEFAULT_SIZE_PX;
+  const outer = Math.max(12, sizePx + 6); // icon container size
+  const anchor = Math.round(outer/2);
+  const html = `<div style="
+    width:${sizePx}px;height:${sizePx}px;background:${color};border-radius:50%;
+    border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);
+    display:inline-block;
+    "></div>`;
+  return L.divIcon({ className:'', html, iconSize:[outer,outer], iconAnchor:[anchor,anchor], popupAnchor:[0,-(anchor+6)] });
+}
+
+function saveColorsToStorage(){ localStorage.setItem('markerColors', JSON.stringify(STATUS_COLORS)); }
+function saveSizesToStorage(){ localStorage.setItem('markerSizes', JSON.stringify(STATUS_SIZES)); }
+
+/* ========= CSV load & mapping ========= */
+function loadCsvText(text){
+  const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
   allRows = parsed.data.map((r,i)=>({
-    _i:i,
-    site:(r["Site Name"]||"").trim(),
-    cluster:(r["Cluster"]||"").trim(),
-    status:(r["Status"]||"").trim(),
-    lat:parseFloat(r["Latitude"]),
-    lon:parseFloat(r["Longitude"])
+    _rowIndex:i,
+    site_name:(r['Site Name']||'').trim(),
+    cluster:(r['Cluster']||'').trim(),
+    status:(r['Status']||'').trim(),
+    lat: smartParseLatLon(r["Latitude"]),
+    lon: smartParseLatLon(r["Longitude"])
   }));
-  populateCluster();
+  populateClusterFilter();
   render();
 }
 
-function populateCluster(){
-  const sel=document.getElementById("clusterSelect");
-  sel.innerHTML='<option value="all">All Clusters</option>';
-  [...new Set(allRows.map(r=>r.cluster))].filter(x=>x).forEach(c=>{
-    sel.innerHTML+=`<option value="${c}">${c}</option>`;
-  });
+function populateClusterFilter(){
+  const clusterSet = new Set(allRows.map(r=>r.cluster).filter(c=>c));
+  const select = document.getElementById('clusterSelect');
+  select.innerHTML = '<option value="all">All Clusters</option>';
+  clusterSet.forEach(c=>{ const o=document.createElement('option'); o.value=c;o.textContent=c;select.appendChild(o); });
 }
 
-document.getElementById("clusterSelect").addEventListener("change",render);
-
-/* ------------------------------ RENDER ------------------------------*/
+/* ========= Render ========= */
 function render(){
-  markersLayer.clearLayers();
-  visibleMarkers={};
-  
-  const clusterFilter=document.getElementById("clusterSelect").value;
-  const bounds=[];
-
-  let completed=0, pending=0;
-
-  const statusCounts={};
+  markersLayer.clearLayers(); visibleMarkers={};
+  const bounds=[]; 
+  const selectedCluster=document.getElementById('clusterSelect').value;
+  let doneCount=0, pendingCount=0;
 
   allRows.forEach(r=>{
     if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
-    if(clusterFilter!=='all' && r.cluster!==clusterFilter) return;
+    if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
 
-    if(!STATUS_COLORS[r.status]){
-      STATUS_COLORS[r.status]=DEFAULT_COLORS[ Object.keys(STATUS_COLORS).length % DEFAULT_COLORS.length ];
-    }
-    if(!STATUS_SIZES[r.status]) STATUS_SIZES[r.status]=8;
+    // ensure color & size exist for status
+    if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status] = DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length % DEFAULT_STATUS_COLORS.length];
+    if(!STATUS_SIZES[r.status]) STATUS_SIZES[r.status] = DEFAULT_SIZE_PX;
 
-    if(r.status==="Completed") completed++;
-    else pending++;
+    const color = STATUS_COLORS[r.status];
+    const size = STATUS_SIZES[r.status];
+    const icon = dotIcon(color, size);
 
-    statusCounts[r.status]=(statusCounts[r.status]||0)+1;
+    const popupHtml = `<div style="min-width:220px">
+      <strong>${r.site_name}</strong><br/>
+      <em>Cluster:</em> ${r.cluster}<br/>
+      <em>Status:</em> ${r.status}
+    </div>`;
 
-    const marker=L.marker([r.lat,r.lon],{
-      icon:dotIcon(STATUS_COLORS[r.status], STATUS_SIZES[r.status])
-    });
+    const m = L.marker([r.lat,r.lon],{icon});
+    m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
+    m.on('mouseover',()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
+    m.on('mouseout',()=>{ if(pinnedMarker!==m) m.closePopup(); });
+    m.on('click',()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16); });
 
-    const html=`<strong>${r.site}</strong><br>Cluster: ${r.cluster}<br>Status: ${r.status}`;
-    marker.bindPopup(html);
-
-    marker.on("mouseover",()=>{ marker.openPopup(); document.getElementById("details").innerHTML=html; });
-    marker.on("mouseout",()=>{ if(pinnedMarker!==marker) marker.closePopup(); });
-    marker.on("click",()=>{ if(pinnedMarker) pinnedMarker.closePopup(); pinnedMarker=marker; });
-
-    marker.addTo(markersLayer);
-    visibleMarkers["row"+r._i]=marker;
+    m.addTo(markersLayer);
+    visibleMarkers['row'+r._rowIndex]=m;
     bounds.push([r.lat,r.lon]);
+
+    if(r.status==='Completed') doneCount++; else pendingCount++;
   });
 
-  updateMainStats(completed, pending);
-  buildExtraStatusPanels(statusCounts);
+  animateValue('doneTotal',0,doneCount,doneCount+pendingCount);
+  animateValue('pendingCount',0,pendingCount);
+  document.getElementById('donePct').textContent = (doneCount+pendingCount)? Math.round(doneCount/(doneCount+pendingCount)*10000)/100+'%':'0%';
+  document.getElementById('totalCount').textContent = `Total: ${doneCount+pendingCount}`;
 
-  if(bounds.length){
-    const b=L.latLngBounds(bounds);
-    if(b.isValid()) map.fitBounds(b.pad(0.2));
-  }
-
-  buildLegend(statusCounts);
+  if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
+  generateLegend();
+  renderExtraStatusPanels(); // new panels
 }
 
-/* ------------------------------ MAIN PANELS ------------------------------*/
-function updateMainStats(done,pending){
-  const total=done+pending;
-  document.getElementById("doneTotal").innerText=`${done} / ${total}`;
-  document.getElementById("pendingCount").innerText=pending;
-  document.getElementById("donePct").innerText = total ? Math.round(done/total*100)+"%" : "0%";
-  document.getElementById("totalCount").innerText="Total: "+total;
+/* small numeric animation */
+function animateValue(id, start, end, total){
+  const obj=document.getElementById(id); if(!obj) return;
+  let startTimestamp=null;
+  const duration=500;
+  const step=timestamp=>{
+    if(!startTimestamp) startTimestamp=timestamp;
+    const progress=Math.min((timestamp-startTimestamp)/duration,1);
+    const current=Math.floor(progress*(end-start)+start);
+    obj.textContent=total? `${current} / ${total}` : current;
+    if(progress<1) window.requestAnimationFrame(step);
+  };
+  window.requestAnimationFrame(step);
 }
 
-/* ------------------------------ EXTRA STATUS PANELS ------------------------------*/
-function buildExtraStatusPanels(counts){
-  const container=document.getElementById("extraStatusPanels");
-  container.innerHTML='';
+/* ========= Legend (color + size controls) ========= */
+let currentControlStatus = null;
+function generateLegend(){
+  const legendContainer = document.getElementById('legendContainer');
+  legendContainer.innerHTML = '';
+  const statuses = Array.from(new Set(allRows.map(r=>r.status).filter(s=>s)));
 
-  const excluded=["Completed","Pending"];
+  statuses.forEach((status,i)=>{
+    if(!STATUS_COLORS[status]) STATUS_COLORS[status] = DEFAULT_STATUS_COLORS[i % DEFAULT_STATUS_COLORS.length];
+    if(!STATUS_SIZES[status]) STATUS_SIZES[status] = DEFAULT_SIZE_PX;
 
-  const list = Object.keys(counts).filter(s=>!excluded.includes(s));
+    const item = document.createElement('div'); item.className='item';
+    const colorDiv = document.createElement('div'); colorDiv.className='color';
+    colorDiv.setAttribute('data-status',status); colorDiv.style.background = STATUS_COLORS[status];
+    const label = document.createElement('div'); label.textContent = status;
+    const sizeLabel = document.createElement('div'); sizeLabel.className='sizeLabel'; sizeLabel.textContent = `${STATUS_SIZES[status]}px`;
 
-  let row;
-  list.forEach((status,i)=>{
-    if(i%2===0){
-      row=document.createElement("div");
-      row.className="statRow";
-      container.appendChild(row);
-    }
-    const div=document.createElement("div");
-    div.className="stat";
-    div.innerHTML=`<div class="small">${status}</div><div>${counts[status]}</div>`;
-    row.appendChild(div);
-  });
-}
-
-/* ------------------------------ LEGEND ------------------------------*/
-function buildLegend(counts){
-  const legend=document.getElementById("legendContainer");
-  legend.innerHTML='';
-
-  Object.keys(counts).forEach(status=>{
-    const item=document.createElement("div");
-    item.className="item";
-
-    const colorBox=document.createElement("div");
-    colorBox.className="color";
-    colorBox.style.background=STATUS_COLORS[status];
-
-    colorBox.addEventListener("click",(e)=>{
-      e.stopPropagation();
-      openLegendPopup(e.clientX, e.clientY, status, colorBox);
+    // click to open control popup (color + size)
+    colorDiv.addEventListener('click', (ev)=>{
+      openControlPopup(status, colorDiv, sizeLabel);
     });
 
-    item.appendChild(colorBox);
-    item.appendChild(document.createTextNode(status));
-    legend.appendChild(item);
+    item.appendChild(colorDiv);
+    item.appendChild(label);
+    item.appendChild(sizeLabel);
+    legendContainer.appendChild(item);
   });
 }
 
-/* ------------------------------ POPUP: COLOR + SIZE ------------------------------*/
-let activePopup=null;
+/* opens a small in-page popup with color input + size slider */
+function openControlPopup(status, colorDiv, sizeLabel){
+  closeControlPopup(); // only one at a time
+  currentControlStatus = status;
 
-function openLegendPopup(x,y,status,element){
-  if(activePopup){ activePopup.remove(); }
+  // create container
+  const popup = document.createElement('div');
+  popup.className = 'controlPopup';
+  popup.id = 'controlPopup';
 
-  const rect=element.getBoundingClientRect();
-  const popup=document.createElement("div");
-  popup.className="marker-size-popup";
-  popup.style.left = rect.right + 10 + "px";
-  popup.style.top = rect.top + "px";
+  // color input
+  const colorLabel = document.createElement('label'); colorLabel.textContent='Color:';
+  const colorInput = document.createElement('input'); colorInput.type='color';
+  colorInput.value = STATUS_COLORS[status] || '#000000';
 
-  popup.innerHTML = `
-    <input type="color" id="colorInput" value="${STATUS_COLORS[status]}" style="width:100%;margin-bottom:10px;">
-    <input type="range" min="4" max="30" value="${STATUS_SIZES[status]}" id="sizeInput" style="width:100%;">
-  `;
+  // size slider
+  const sizeLabelEl = document.createElement('label'); sizeLabelEl.textContent='Size:';
+  const sizeInput = document.createElement('input'); sizeInput.type='range'; sizeInput.min=4; sizeInput.max=30; sizeInput.step=1;
+  sizeInput.value = STATUS_SIZES[status] || DEFAULT_SIZE_PX;
 
+  const sizeValue = document.createElement('div'); sizeValue.className='sizeValue'; sizeValue.textContent = sizeInput.value + 'px';
+
+  // close button
+  const closeBtn = document.createElement('button'); closeBtn.className='closeBtn'; closeBtn.textContent='Close';
+
+  // assemble
+  const colorWrap = document.createElement('div'); colorWrap.style.display='flex'; colorWrap.style.alignItems='center'; colorWrap.style.gap='8px';
+  colorWrap.appendChild(colorLabel); colorWrap.appendChild(colorInput);
+  const sizeWrap = document.createElement('div'); sizeWrap.style.display='flex'; sizeWrap.style.alignItems='center'; sizeWrap.style.gap='8px';
+  sizeWrap.appendChild(sizeLabelEl); sizeWrap.appendChild(sizeInput); sizeWrap.appendChild(sizeValue);
+
+  popup.appendChild(colorWrap);
+  popup.appendChild(sizeWrap);
+  popup.appendChild(closeBtn);
   document.body.appendChild(popup);
-  activePopup=popup;
 
-  popup.querySelector("#colorInput").addEventListener("input",e=>{
-    STATUS_COLORS[status]=e.target.value;
-    localStorage.setItem("markerColors",JSON.stringify(STATUS_COLORS));
-    render();
+  // event handlers
+  colorInput.addEventListener('input', (e)=>{
+    const v = e.target.value;
+    STATUS_COLORS[status] = v;
+    colorDiv.style.background = v;
+    saveColorsToStorage();
+    updateMarkerColors(status, v);
   });
 
-  popup.querySelector("#sizeInput").addEventListener("input",e=>{
-    STATUS_SIZES[status]=parseInt(e.target.value);
-    localStorage.setItem("markerSizes",JSON.stringify(STATUS_SIZES));
-    render();
+  sizeInput.addEventListener('input', (e)=>{
+    const v = Number(e.target.value);
+    STATUS_SIZES[status] = v;
+    sizeValue.textContent = v + 'px';
+    sizeLabel.textContent = v + 'px';
+    saveSizesToStorage();
+    updateMarkerSizes(status, v);
   });
 
-  document.addEventListener("click", closePopupOutside);
-}
+  closeBtn.addEventListener('click', ()=>{ closeControlPopup(); });
 
-function closePopupOutside(e){
-  if(activePopup && !activePopup.contains(e.target)){
-    activePopup.remove();
-    activePopup=null;
-    document.removeEventListener("click", closePopupOutside);
+  // close on outside click
+  setTimeout(()=>{ // allow creation first
+    window.addEventListener('click', outsideClickListener);
+  }, 10);
+
+  function outsideClickListener(e){
+    if(!popup.contains(e.target) && e.target !== colorDiv){
+      closeControlPopup();
+    }
   }
 }
 
-/* ------------------------------ SEARCH ------------------------------*/
-document.getElementById("siteFindBtn").addEventListener("click",findSite);
-document.getElementById("siteSearch").addEventListener("keypress",(e)=>{ if(e.key==="Enter") findSite();});
+function closeControlPopup(){
+  const existing = document.getElementById('controlPopup');
+  if(existing) existing.remove();
+  window.removeEventListener('click', ()=>{});
+  currentControlStatus = null;
+}
 
+function updateMarkerColors(status,newColor){
+  for(const key in visibleMarkers){
+    const m = visibleMarkers[key];
+    // find corresponding row
+    const idx = parseInt(key.replace('row',''),10);
+    const row = allRows[idx];
+    if(row && row.status===status) m.setIcon(dotIcon(newColor, STATUS_SIZES[status] || DEFAULT_SIZE_PX));
+  }
+}
+
+function updateMarkerSizes(status,newSize){
+  for(const key in visibleMarkers){
+    const m = visibleMarkers[key];
+    const idx = parseInt(key.replace('row',''),10);
+    const row = allRows[idx];
+    if(row && row.status===status) m.setIcon(dotIcon(STATUS_COLORS[status] || DEFAULT_STATUS_COLORS[0], newSize));
+  }
+}
+
+/* provide wrapper to update both if needed */
+function updateMarkerSizesAndColors(status){
+  const color = STATUS_COLORS[status];
+  const size = STATUS_SIZES[status] || DEFAULT_SIZE_PX;
+  updateMarkerColors(status, color);
+  updateMarkerSizes(status, size);
+}
+
+/* ========= Extra status panels =========
+   Show counts for statuses other than Completed and Pending.
+   Placed below the first two stat boxes.
+*/
+function renderExtraStatusPanels(){
+  const container = document.getElementById('extraStatusPanels');
+  container.innerHTML = '';
+  const counts = {};
+  allRows.forEach(r=>{
+    const s = r.status || 'Unknown';
+    counts[s] = (counts[s] || 0) + 1;
+  });
+
+  // exclude Completed and Pending (keep first two panels unchanged)
+  const exclude = new Set(['Completed','Pending']);
+  const otherStatuses = Object.keys(counts).filter(s=>!exclude.has(s)).sort();
+
+  otherStatuses.forEach(status=>{
+    const panel = document.createElement('div'); panel.className='smallPanel';
+    const label = document.createElement('div'); label.className='label'; label.textContent = status;
+    const count = document.createElement('div'); count.className='count'; count.textContent = counts[status];
+    panel.appendChild(label); panel.appendChild(count);
+    container.appendChild(panel);
+  });
+
+  // if none, keep container empty (no panels)
+}
+
+/* ========= Search & UI wiring ========= */
 function findSite(){
-  const t=document.getElementById("siteSearch").value.trim().toLowerCase();
-  if(!t) return;
-
-  for(let key in visibleMarkers){
-    const rowIndex=parseInt(key.replace("row",""));
-    const r=allRows[rowIndex];
-    if(r.site.toLowerCase()===t){
-      const m=visibleMarkers[key];
-      m.openPopup();
-      map.setView(m.getLatLng(),16);
-      return;
+  const searchText = document.getElementById('siteSearch').value.trim().toLowerCase();
+  if(!searchText) return;
+  let found=false;
+  for(const key in visibleMarkers){
+    const marker = visibleMarkers[key];
+    const idx = parseInt(key.replace('row',''),10);
+    const row = allRows[idx];
+    if(row && row.site_name && row.site_name.toLowerCase()===searchText){
+      if(pinnedMarker && pinnedMarker!==marker) pinnedMarker.closePopup();
+      pinnedMarker = marker;
+      marker.openPopup();
+      map.setView(marker.getLatLng(),16);
+      document.getElementById('details').innerHTML = `<div style="min-width:220px">
+        <strong>${row.site_name}</strong><br/>
+        <em>Cluster:</em> ${row.cluster}<br/>
+        <em>Status:</em> ${row.status}
+      </div>`;
+      found=true;
+      break;
     }
   }
-  alert("Site not found.");
+  if(!found) alert('Site not found!');
 }
 
-/* ------------------------------ GOOGLE SHEET AUTO-FETCH ------------------------------*/
-async function fetchCsv(){
-  const url="https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?output=csv&_t="+Date.now();
+document.getElementById('clusterSelect').addEventListener('change',render);
+document.getElementById('siteFindBtn').addEventListener('click', findSite);
+document.getElementById('siteSearch').addEventListener('keypress', function(e){ if(e.key==='Enter') findSite(); });
+document.getElementById('sniperBtn').addEventListener('click', render);
+
+/* ========= Polygons ========= */
+fetch('smartcluster.geojson')
+  .then(r=>r.json())
+  .then(data=>{
+    polygonsLayer.clearLayers();
+    L.geoJSON(data, {
+      style: feature => {
+        const name = feature.properties.Name || 'Cluster';
+        if(!clusterColors[name]) clusterColors[name] = DEFAULT_CLUSTER_COLORS[Object.keys(clusterColors).length % DEFAULT_CLUSTER_COLORS.length];
+        return { color: clusterColors[name], fillColor: clusterColors[name], fillOpacity: 0.3, weight: 2 };
+      },
+      onEachFeature: (feature, layer) => {
+        layer.bindPopup(`<strong>Cluster:</strong> ${feature.properties.Name || 'Cluster'}`);
+      }
+    }).addTo(polygonsLayer);
+  }).catch(()=>{/* ignore if missing */});
+
+/* ========= CSV fetch auto-refresh ========= */
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?output=csv";
+
+async function smartFetchCsv(){
   try{
-    const r=await fetch(url,{cache:"no-store"});
-    const text=await r.text();
-    if(text!==lastCsvText){
-      lastCsvText=text;
-      loadCsv(text);
+    const url = SHEET_CSV_URL + "&_t=" + Date.now();
+    const response = await fetch(url, { cache: "no-store" });
+    if(!response.ok) throw new Error('Network response not ok');
+    const csvText = await response.text();
+    if(csvText !== lastCsvText){
+      lastCsvText = csvText;
+      loadCsvText(csvText);
     }
-  } catch(err){ console.error(err); }
+  }catch(err){
+    console.error('CSV fetch error:', err);
+  }
 }
 
-fetchCsv();
-setInterval(fetchCsv, 30000);
+/* start */
+smartFetchCsv();
+setInterval(smartFetchCsv, 30000);
 
 </script>
 </body>
