@@ -44,23 +44,20 @@ button:hover{ background:#1f5ab5; }
 .legend{ display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
 .legend .item{ display:flex; align-items:center; gap:8px; cursor:pointer; }
 .legend .color{ width:16px; height:16px; border-radius:50%; margin-right:8px; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,0.25); flex-shrink:0; }
-.legend .sizeLabel{ font-size:12px; color:#666; margin-left:auto; }
 #details{ font-size:14px; color:#222; margin-top:8px; padding:8px; border-radius:var(--radius); background:rgba(255,255,255,0.7); box-shadow:0 4px 12px rgba(0,0,0,0.08); min-height:80px; }
 .map-sniper-btn{position:absolute;bottom:20px;right:20px;z-index:9999;width:50px;height:50px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #444;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
 .map-sniper-btn img{width:28px;height:28px;}
 .map-sniper-btn:hover{transform:translateY(-4px);box-shadow:0 6px 18px rgba(0,0,0,0.28);}
 
-/* Extra status panels container (below the two main stat boxes) */
-.extraStatusPanels { display:flex; flex-wrap:wrap; gap:12px; }
-.extraStatusPanels .smallPanel { background:rgba(255,255,255,0.92); padding:10px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.06); flex:1; min-width:160px; text-align:center; }
+/* Extra status panels: 2 per row only */
+.extraStatusPanels { display: grid; grid-template-columns: repeat(2, 1fr); gap:12px; }
+.extraStatusPanels .smallPanel { background:rgba(255,255,255,0.92); padding:10px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.06); text-align:center; }
 .smallPanel .label { font-weight:600; color:#444; margin-bottom:6px; }
 .smallPanel .count { font-weight:700; font-size:20px; color:#111; }
 
 /* Popup for color + size controls */
 .controlPopup {
-  position:fixed;
-  left:50%; top:50%;
-  transform:translate(-50%,-50%);
+  position:absolute;
   background:white; padding:12px; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.2);
   z-index:10000; display:flex; gap:12px; align-items:center;
 }
@@ -122,38 +119,28 @@ input[type="color"] { border:none; padding:0; width:36px; height:36px; backgroun
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ========= State ========= */
 let allRows = [], visibleMarkers = {}, pinnedMarker = null, lastCsvText = "";
-const STATUS_COLORS = {};
-const STATUS_SIZES = {};
+const STATUS_COLORS = {}, STATUS_SIZES = {};
 const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#A020F0','#FFFF00'];
 const DEFAULT_SIZE_PX = 8;
 const clusterColors = {};
-const DEFAULT_CLUSTER_COLORS = [
-  '#FF6633','#FFB399','#99FF99','#FF33FF','#FFFF99',
-  '#80B300','#E6B3B3','#6680B3','#809900','#66991A',
-  '#E6B333','#3366E6','#00B3E6','#999966','#B34D4D'
-];
+const DEFAULT_CLUSTER_COLORS = ['#FF6633','#FFB399','#99FF99','#FF33FF','#FFFF99','#80B300','#E6B3B3','#6680B3','#809900','#66991A','#E6B333','#3366E6','#00B3E6','#999966','#B34D4D'];
 
-/* load saved colors and sizes from localStorage */
 const savedColors = localStorage.getItem('markerColors');
-if (savedColors) try { Object.assign(STATUS_COLORS, JSON.parse(savedColors)); } catch(e){}
+if (savedColors) try{ Object.assign(STATUS_COLORS, JSON.parse(savedColors)); } catch(e){}
 const savedSizes = localStorage.getItem('markerSizes');
-if (savedSizes) try { Object.assign(STATUS_SIZES, JSON.parse(savedSizes)); } catch(e){}
+if (savedSizes) try{ Object.assign(STATUS_SIZES, JSON.parse(savedSizes)); } catch(e){}
 
-/* ========= Map setup ========= */
 const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
 L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
 const polygonsLayer = L.layerGroup().addTo(map);
 
-/* Helpers */
-function smartParseLatLon(value){if(!value) return NaN; value=value.toString().trim().replace(/[^\d\.-]/g,""); return parseFloat(value);}
-function dotIcon(color, sizePx){ sizePx = Number(sizePx)||DEFAULT_SIZE_PX; const outer=Math.max(12,sizePx+6); const anchor=Math.round(outer/2); const html=`<div style="width:${sizePx}px;height:${sizePx}px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`; return L.divIcon({className:'', html, iconSize:[outer,outer], iconAnchor:[anchor,anchor], popupAnchor:[0,-(anchor+6)]}); }
+function smartParseLatLon(value){if(!value)return NaN; value=value.toString().trim().replace(/[^\d\.-]/g,""); return parseFloat(value);}
+function dotIcon(color,sizePx){ sizePx=Number(sizePx)||DEFAULT_SIZE_PX; const outer=Math.max(12,sizePx+6); const anchor=Math.round(outer/2); const html=`<div style="width:${sizePx}px;height:${sizePx}px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`; return L.divIcon({className:'', html, iconSize:[outer,outer], iconAnchor:[anchor,anchor], popupAnchor:[0,-(anchor+6)]}); }
 function saveColorsToStorage(){ localStorage.setItem('markerColors', JSON.stringify(STATUS_COLORS)); }
 function saveSizesToStorage(){ localStorage.setItem('markerSizes', JSON.stringify(STATUS_SIZES)); }
 
-/* CSV load */
 function loadCsvText(text){
   const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
   allRows = parsed.data.map((r,i)=>({ _rowIndex:i, site_name:(r['Site Name']||'').trim(), cluster:(r['Cluster']||'').trim(), status:(r['Status']||'').trim(), lat: smartParseLatLon(r["Latitude"]), lon: smartParseLatLon(r["Longitude"]) }));
@@ -164,11 +151,10 @@ function loadCsvText(text){
 function populateClusterFilter(){
   const clusterSet = new Set(allRows.map(r=>r.cluster).filter(c=>c));
   const select = document.getElementById('clusterSelect');
-  select.innerHTML = '<option value="all">All Clusters</option>';
+  select.innerHTML='<option value="all">All Clusters</option>';
   clusterSet.forEach(c=>{ const o=document.createElement('option'); o.value=c;o.textContent=c;select.appendChild(o); });
 }
 
-/* ========= Render ========= */
 function render(){
   markersLayer.clearLayers(); visibleMarkers={};
   const bounds=[]; 
@@ -182,12 +168,10 @@ function render(){
 
     if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status]=DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length % DEFAULT_STATUS_COLORS.length];
     if(!STATUS_SIZES[r.status]) STATUS_SIZES[r.status]=DEFAULT_SIZE_PX;
-    const color = STATUS_COLORS[r.status];
-    const size = STATUS_SIZES[r.status];
 
-    const icon = dotIcon(color,size);
-    const popupHtml = `<div style="min-width:220px"><strong>${r.site_name}</strong><br/><em>Cluster:</em> ${r.cluster}<br/><em>Status:</em> ${r.status}</div>`;
-    const m = L.marker([r.lat,r.lon],{icon});
+    const icon=dotIcon(STATUS_COLORS[r.status],STATUS_SIZES[r.status]);
+    const popupHtml=`<div style="min-width:220px"><strong>${r.site_name}</strong><br/><em>Cluster:</em> ${r.cluster}<br/><em>Status:</em> ${r.status}</div>`;
+    const m=L.marker([r.lat,r.lon],{icon});
     m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
     m.on('mouseover',()=>{ if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
     m.on('mouseout',()=>{ if(pinnedMarker!==m) m.closePopup(); });
@@ -198,183 +182,142 @@ function render(){
     bounds.push([r.lat,r.lon]);
 
     counts[r.status] = (counts[r.status]||0)+1;
-    if(r.status==='Completed') doneCount++; else if(r.status==='Pending') pendingCount++;
+    if(r.status==='Completed') doneCount++;
   });
+
+  // Pending = all except Completed
+  pendingCount = Object.keys(counts).reduce((sum,s)=> s!=='Completed'? sum+counts[s]:sum, 0);
 
   animateValue('doneTotal',0,doneCount,doneCount+pendingCount);
   animateValue('pendingCount',0,pendingCount);
-  document.getElementById('donePct').textContent = (doneCount+pendingCount)? Math.round(doneCount/(doneCount+pendingCount)*10000)/100+'%':'0%';
-  document.getElementById('totalCount').textContent = `Total: ${doneCount+pendingCount}`;
+  document.getElementById('donePct').textContent=(doneCount+pendingCount)?Math.round(doneCount/(doneCount+pendingCount)*10000)/100+'%':'0%';
+  document.getElementById('totalCount').textContent=`Total: ${doneCount+pendingCount}`;
 
   if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
   generateLegend();
   renderExtraStatusPanels(counts);
 }
 
-/* Animate value */
-function animateValue(id,start,end,total){ const obj=document.getElementById(id); if(!obj) return; let startTs=null; const dur=500; const step=ts=>{ if(!startTs) startTs=ts; const prog=Math.min((ts-startTs)/dur,1); const curr=Math.floor(prog*(end-start)+start); obj.textContent=total?`${curr} / ${total}`:curr; if(prog<1) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+function animateValue(id,start,end,total){ const obj=document.getElementById(id); if(!obj)return; let startTs=null; const dur=500; const step=ts=>{ if(!startTs) startTs=ts; const prog=Math.min((ts-startTs)/dur,1); const curr=Math.floor(prog*(end-start)+start); obj.textContent=total?`${curr} / ${total}`:curr; if(prog<1) requestAnimationFrame(step); }; requestAnimationFrame(step); }
 
-/* ========= Legend and controls ========= */
 let currentControlStatus = null;
 function generateLegend(){
-  const legendContainer = document.getElementById('legendContainer');
+  const legendContainer=document.getElementById('legendContainer');
   legendContainer.innerHTML='';
-  const statuses = Array.from(new Set(allRows.map(r=>r.status).filter(s=>s)));
+  const statuses=Array.from(new Set(allRows.map(r=>r.status).filter(s=>s)));
   statuses.forEach((status,i)=>{
     if(!STATUS_COLORS[status]) STATUS_COLORS[status]=DEFAULT_STATUS_COLORS[i%DEFAULT_STATUS_COLORS.length];
     if(!STATUS_SIZES[status]) STATUS_SIZES[status]=DEFAULT_SIZE_PX;
-    const item = document.createElement('div'); item.className='item';
-    const colorDiv = document.createElement('div'); colorDiv.className='color'; colorDiv.setAttribute('data-status',status); colorDiv.style.background = STATUS_COLORS[status];
-    const label = document.createElement('div'); label.textContent = status;
-    const sizeLabel = document.createElement('div'); sizeLabel.className='sizeLabel'; sizeLabel.textContent = `${STATUS_SIZES[status]}px`;
-    colorDiv.addEventListener('click',()=>{ openControlPopup(status,colorDiv,sizeLabel); });
-    item.appendChild(colorDiv); item.appendChild(label); item.appendChild(sizeLabel);
+    const item=document.createElement('div'); item.className='item';
+    const colorDiv=document.createElement('div'); colorDiv.className='color'; colorDiv.setAttribute('data-status',status); colorDiv.style.background=STATUS_COLORS[status];
+    const label=document.createElement('div'); label.textContent=status;
+    item.appendChild(colorDiv); item.appendChild(label);
     legendContainer.appendChild(item);
+
+    colorDiv.addEventListener('click',()=>{ openControlPopup(status,colorDiv); });
   });
 }
 
-function openControlPopup(status,colorDiv,sizeLabel){
+function openControlPopup(status, colorDiv){
   closeControlPopup(); currentControlStatus=status;
+  const rect = colorDiv.getBoundingClientRect();
   const popup=document.createElement('div'); popup.className='controlPopup'; popup.id='controlPopup';
+
   const colorInput=document.createElement('input'); colorInput.type='color'; colorInput.value=STATUS_COLORS[status]||'#000000';
+  const colorLabel=document.createElement('label'); colorLabel.textContent='Color:';
   const colorWrap=document.createElement('div'); colorWrap.style.display='flex'; colorWrap.style.alignItems='center'; colorWrap.style.gap='8px';
-  const colorLabel = document.createElement('label'); colorLabel.textContent='Color:'; colorWrap.appendChild(colorLabel); colorWrap.appendChild(colorInput);
+  colorWrap.appendChild(colorLabel); colorWrap.appendChild(colorInput);
+
   const sizeInput=document.createElement('input'); sizeInput.type='range'; sizeInput.min=4; sizeInput.max=30; sizeInput.step=1; sizeInput.value=STATUS_SIZES[status]||DEFAULT_SIZE_PX;
-  const sizeValue=document.createElement('div'); sizeValue.className='sizeValue'; sizeValue.textContent = sizeInput.value+'px';
+  const sizeValue=document.createElement('div'); sizeValue.className='sizeValue'; sizeValue.textContent=sizeInput.value+'px';
+  const sizeLabelEl=document.createElement('label'); sizeLabelEl.textContent='Size:';
   const sizeWrap=document.createElement('div'); sizeWrap.style.display='flex'; sizeWrap.style.alignItems='center'; sizeWrap.style.gap='8px';
-  const sizeLabelEl = document.createElement('label'); sizeLabelEl.textContent='Size:'; sizeWrap.appendChild(sizeLabelEl); sizeWrap.appendChild(sizeInput); sizeWrap.appendChild(sizeValue);
+  sizeWrap.appendChild(sizeLabelEl); sizeWrap.appendChild(sizeInput); sizeWrap.appendChild(sizeValue);
+
   const closeBtn=document.createElement('button'); closeBtn.className='closeBtn'; closeBtn.textContent='Close';
   closeBtn.addEventListener('click',closeControlPopup);
+
   popup.appendChild(colorWrap); popup.appendChild(sizeWrap); popup.appendChild(closeBtn);
   document.body.appendChild(popup);
-  colorInput.addEventListener('input',e=>{
-    const v=e.target.value;
-    STATUS_COLORS[status]=v;
-    colorDiv.style.background=v;
-    saveColorsToStorage();
-    updateMarkerColors(status,v);
-  });
 
-  sizeInput.addEventListener('input',e=>{
-    const v=Number(e.target.value);
-    STATUS_SIZES[status]=v;
-    sizeValue.textContent=v+'px';
-    saveSizesToStorage();
-    updateMarkerSizes(status,v);
-  });
+  // position near legend item
+  popup.style.top=(rect.bottom+window.scrollY+4)+'px';
+  popup.style.left=(rect.left+window.scrollX)+'px';
 
-  // close on outside click
+  colorInput.addEventListener('input',e=>{ STATUS_COLORS[status]=e.target.value; colorDiv.style.background=e.target.value; saveColorsToStorage(); updateMarkerColors(status,e.target.value); });
+  sizeInput.addEventListener('input',e=>{ STATUS_SIZES[status]=Number(e.target.value); sizeValue.textContent=e.target.value+'px'; saveSizesToStorage(); updateMarkerSizes(status,Number(e.target.value)); });
+
   setTimeout(()=>{ window.addEventListener('click',outsideClickListener); },10);
-  function outsideClickListener(e){
-    if(!popup.contains(e.target) && e.target!==colorDiv) closeControlPopup();
-  }
+  function outsideClickListener(e){ if(!popup.contains(e.target) && e.target!==colorDiv) closeControlPopup(); }
 }
 
-function closeControlPopup(){
-  const existing=document.getElementById('controlPopup');
-  if(existing) existing.remove();
-  window.removeEventListener('click',()=>{});
-  currentControlStatus=null;
+function closeControlPopup(){ const existing=document.getElementById('controlPopup'); if(existing) existing.remove(); window.removeEventListener('click',()=>{}); currentControlStatus=null; }
+
+function updateMarkerColors(status, color){
+  Object.keys(visibleMarkers).forEach(k=>{
+    const m = visibleMarkers[k];
+    const row = allRows[parseInt(k.replace('row',''))];
+    if(row.status === status){
+      const size = STATUS_SIZES[status] || DEFAULT_SIZE_PX;
+      m.setIcon(dotIcon(color,size));
+    }
+  });
 }
 
-function updateMarkerColors(status,newColor){
-  for(const key in visibleMarkers){
-    const m=visibleMarkers[key];
-    const idx=parseInt(key.replace('row',''),10);
-    const row=allRows[idx];
-    if(row && row.status===status) m.setIcon(dotIcon(newColor, STATUS_SIZES[status]||DEFAULT_SIZE_PX));
-  }
+function updateMarkerSizes(status, size){
+  Object.keys(visibleMarkers).forEach(k=>{
+    const m = visibleMarkers[k];
+    const row = allRows[parseInt(k.replace('row',''))];
+    if(row.status === status){
+      const color = STATUS_COLORS[status] || DEFAULT_STATUS_COLORS[0];
+      m.setIcon(dotIcon(color,size));
+    }
+  });
 }
 
-function updateMarkerSizes(status,newSize){
-  for(const key in visibleMarkers){
-    const m=visibleMarkers[key];
-    const idx=parseInt(key.replace('row',''),10);
-    const row=allRows[idx];
-    if(row && row.status===status) m.setIcon(dotIcon(STATUS_COLORS[status]||DEFAULT_STATUS_COLORS[0],newSize));
-  }
-}
-
-/* ========= Extra status panels ========= */
 function renderExtraStatusPanels(counts){
-  const container=document.getElementById('extraStatusPanels');
-  container.innerHTML='';
-  const exclude=new Set(['Completed','Pending']);
-  const statuses=Object.keys(counts).sort();
-
-  statuses.forEach(status=>{
-    if(exclude.has(status)) return;
-    const panel=document.createElement('div'); panel.className='smallPanel';
-    const label=document.createElement('div'); label.className='label'; label.textContent=status;
-    const count=document.createElement('div'); count.className='count'; count.textContent=counts[status]||0;
-    panel.appendChild(label); panel.appendChild(count);
+  const container = document.getElementById('extraStatusPanels');
+  container.innerHTML = '';
+  Object.keys(counts).forEach(status=>{
+    if(status==='Completed' || status==='Pending') return; // skip main stats
+    const panel = document.createElement('div');
+    panel.className='smallPanel';
+    const label = document.createElement('div'); label.className='label'; label.textContent=status;
+    const countDiv = document.createElement('div'); countDiv.className='count'; countDiv.textContent=counts[status]||0;
+    panel.appendChild(label); panel.appendChild(countDiv);
     container.appendChild(panel);
   });
 }
 
-/* ========= Search & cluster filter ========= */
-function findSite(){
-  const searchText=document.getElementById('siteSearch').value.trim().toLowerCase();
-  if(!searchText) return;
+// Event listeners
+document.getElementById('clusterSelect').addEventListener('change', render);
+document.getElementById('siteFindBtn').addEventListener('click',()=>{
+  const search = document.getElementById('siteSearch').value.trim().toLowerCase();
+  if(!search) return;
   let found=false;
-  for(const key in visibleMarkers){
-    const marker=visibleMarkers[key];
-    const idx=parseInt(key.replace('row',''),10);
-    const row=allRows[idx];
-    if(row && row.site_name && row.site_name.toLowerCase()===searchText){
-      if(pinnedMarker && pinnedMarker!==marker) pinnedMarker.closePopup();
-      pinnedMarker=marker;
-      marker.openPopup();
-      map.setView(marker.getLatLng(),16);
-      document.getElementById('details').innerHTML=`<div style="min-width:220px">
-        <strong>${row.site_name}</strong><br/>
-        <em>Cluster:</em> ${row.cluster}<br/>
-        <em>Status:</em> ${row.status}
-      </div>`;
-      found=true; break;
+  allRows.forEach((r,i)=>{
+    if(r.site_name.toLowerCase()===search){
+      found=true;
+      const m=visibleMarkers['row'+i];
+      if(m){ map.setView(m.getLatLng(),16); m.openPopup(); pinnedMarker=m; document.getElementById('details').innerHTML=`<div style="min-width:220px"><strong>${r.site_name}</strong><br/><em>Cluster:</em> ${r.cluster}<br/><em>Status:</em> ${r.status}</div>`; }
     }
-  }
-  if(!found) alert('Site not found!');
-}
+  });
+  if(!found) alert('Site not found in current filter.');
+});
 
-document.getElementById('clusterSelect').addEventListener('change',render);
-document.getElementById('siteFindBtn').addEventListener('click',findSite);
-document.getElementById('siteSearch').addEventListener('keypress',function(e){ if(e.key==='Enter') findSite(); });
-document.getElementById('sniperBtn').addEventListener('click',render);
+// Map reset button
+document.getElementById('sniperBtn').addEventListener('click',()=>{
+  const bounds = L.latLngBounds(Object.values(visibleMarkers).map(m=>m.getLatLng()));
+  if(bounds.isValid()) map.fitBounds(bounds.pad(0.2));
+});
 
-/* ========= Polygons ========= */
-fetch('smartcluster.geojson')
-.then(r=>r.json())
-.then(data=>{
-  polygonsLayer.clearLayers();
-  L.geoJSON(data,{
-    style:feature=>{
-      const name=feature.properties.Name||'Cluster';
-      if(!clusterColors[name]) clusterColors[name]=DEFAULT_CLUSTER_COLORS[Object.keys(clusterColors).length%DEFAULT_CLUSTER_COLORS.length];
-      return { color: clusterColors[name], fillColor: clusterColors[name], fillOpacity:0.3, weight:2 };
-    },
-    onEachFeature:(feature,layer)=>{
-      layer.bindPopup(`<strong>Cluster:</strong> ${feature.properties.Name||'Cluster'}`);
-    }
-  }).addTo(polygonsLayer);
-}).catch(()=>{});
-
-/* ========= Auto-fetch CSV ========= */
-const SHEET_CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?output=csv";
-async function smartFetchCsv(){
-  try{
-    const url=SHEET_CSV_URL+"&_t="+Date.now();
-    const response=await fetch(url,{cache:"no-store"});
-    if(!response.ok) throw new Error('Network response not ok');
-    const csvText=await response.text();
-    if(csvText!==lastCsvText){
-      lastCsvText=csvText;
-      loadCsvText(csvText);
-    }
-  }catch(err){ console.error('CSV fetch error:',err); }
-}
-smartFetchCsv();
-setInterval(smartFetchCsv,30000);
+// Example: Load CSV via paste or file (replace with your actual CSV loading)
+const sampleCsv=`Site Name,Cluster,Status,Latitude,Longitude
+SiteA,Cluster1,Completed,3.1,101.5
+SiteB,Cluster1,Pending,3.2,101.6
+SiteC,Cluster2,In Progress,3.3,101.4
+SiteD,Cluster2,Delayed,3.4,101.7`;
+loadCsvText(sampleCsv);
 </script>
 </body>
 </html>
