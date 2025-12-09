@@ -305,17 +305,26 @@ fetch('smartcluster.geojson')
     }).addTo(polygonsLayer);
   });
 
-// Auto-refresh CSV
-const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?output=csv';
-let lastCsvText=null;
 async function smartFetchCsv(){
   try{
-    const response=await fetch(SHEET_CSV_URL);
-    if(!response.ok) throw new Error('Network response not ok');
-    const csvText=await response.text();
-    if(csvText!==lastCsvText){ lastCsvText=csvText; loadCsvText(csvText); }
-  }catch(err){ console.error('CSV fetch error:',err);}
+    const response = await fetch(SHEET_CSV_URL + "&_t=" + Date.now(), {
+      cache: "no-store"
+    });
+
+    if (!response.ok) throw new Error("Network response not ok");
+
+    const csvText = await response.text();
+
+    if (csvText !== lastCsvText) {
+      lastCsvText = csvText;
+      loadCsvText(csvText);
+    }
+
+  } catch (err) {
+    console.error("CSV fetch error:", err);
+  }
 }
+
 smartFetchCsv();
 setInterval(smartFetchCsv,30000);
 </script>
