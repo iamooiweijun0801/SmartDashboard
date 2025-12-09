@@ -16,8 +16,6 @@ html, body { margin:0; height:100%; font-family: Arial; background:#e0eaff; colo
 #map{ height:100%; border-radius:var(--radius); box-shadow:var(--shadow); border:2px solid rgba(0,0,0,0.3); position:relative; }
 h2{ margin-bottom:12px; font-weight:700; font-size:1.4em; color:#1a1a1a; }
 label{ font-weight:600; color:#333; margin-bottom:6px; }
-
-/* Inputs & buttons */
 select, input[type=text] {
   padding:8px 10px; 
   border-radius:var(--radius); 
@@ -38,7 +36,6 @@ button {
   font-size:16px;
 }
 button:hover{ background:#1f5ab5; }
-
 .statRow{ display:flex; gap:12px; margin-bottom:12px; }
 .stat{ background:rgba(255,255,255,0.85); flex:1; padding:12px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center; transition:0.2s; }
 .stat:hover{ box-shadow:0 6px 18px rgba(0,0,0,0.15); transform:translateY(-2px); }
@@ -57,18 +54,12 @@ button:hover{ background:#1f5ab5; }
 <div class="app">
   <div class="panel">
     <h2>Site Map Dashboard</h2>
-
-    <!-- Cluster filter -->
     <label for="clusterSelect">Filter by Cluster</label>
     <select id="clusterSelect"><option value="all">All Clusters</option></select>
-
-    <!-- Exact site search -->
-<div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
-  <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1; font-size:16px; padding:8px; height:38px;" />
-  <button id="siteFindBtn" style="padding:0 16px; font-size:16px; height:38px;">Find</button>
-</div>
-
-
+    <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
+      <input type="text" id="siteSearch" placeholder="Type exact site name..." style="flex:1; font-size:16px; padding:8px; height:38px;" />
+      <button id="siteFindBtn" style="padding:0 16px; font-size:16px; height:38px;">Find</button>
+    </div>
     <div class="statRow">
       <div class="stat">
         <div class="small">Completed / Total</div>
@@ -81,11 +72,9 @@ button:hover{ background:#1f5ab5; }
         <div class="small" id="totalCount">Total: 0</div>
       </div>
     </div>
-
     <div class="legend" id="legendContainer"></div>
     <div id="details">Hover or click a marker to see details here.</div>
   </div>
-
   <div class="panel" style="padding:0;">
     <div id="map">
       <div id="sniperBtn" class="map-sniper-btn" title="Reset view">
@@ -97,40 +86,10 @@ button:hover{ background:#1f5ab5; }
 
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-ajax"></script>
 
 <script>
-function smartParseLatLon(value) {
-  if (!value) return NaN;
-
-  value = value.toString().trim();
-
-  // Remove degree symbols, quotes, spaces
-  value = value.replace(/[^\d\.-]/g, "");
-
-  // Fix formats like "3.123.456" → "3.123456"
-  const parts = value.split(".");
-  if (parts.length > 2) {
-    value = parts[0] + "." + parts.slice(1).join("");
-  }
-
-  return parseFloat(value);
-}
-
-const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
-L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-    maxZoom: 20
-}).addTo(map);
-const markersLayer = L.layerGroup().addTo(map);
-let allRows=[], visibleMarkers={}, pinnedMarker=null;
+let allRows = [], visibleMarkers = {}, pinnedMarker = null, lastCsvText = "";
 const STATUS_COLORS = {};
-// Load saved colors from previous sessions
-const savedColors = localStorage.getItem('markerColors');
-if (savedColors) {
-  const parsed = JSON.parse(savedColors);
-  for (const key in parsed) STATUS_COLORS[key] = parsed[key];
-}
-
 const DEFAULT_STATUS_COLORS = ['#66ff00','#2F80ED','#FF0000','#FF9900','#A020F0','#FFFF00'];
 const clusterColors = {};
 const DEFAULT_CLUSTER_COLORS = [
@@ -138,7 +97,21 @@ const DEFAULT_CLUSTER_COLORS = [
   '#80B300','#E6B3B3','#6680B3','#809900','#66991A',
   '#E6B333','#3366E6','#00B3E6','#999966','#B34D4D'
 ];
-let polygonsLayer = L.layerGroup().addTo(map);
+const savedColors = localStorage.getItem('markerColors');
+if (savedColors) Object.assign(STATUS_COLORS, JSON.parse(savedColors));
+
+const map = L.map('map',{preferCanvas:true}).setView([3.0,101.5],6);
+L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map);
+const markersLayer = L.layerGroup().addTo(map);
+const polygonsLayer = L.layerGroup().addTo(map);
+
+function smartParseLatLon(value) {
+  if (!value) return NaN;
+  value = value.toString().trim().replace(/[^\d\.-]/g, "");
+  const parts = value.split(".");
+  if (parts.length > 2) value = parts[0] + "." + parts.slice(1).join("");
+  return parseFloat(value);
+}
 
 function dotIcon(color){
   return L.divIcon({className:'', html:`<div style="width:8px;height:8px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`, iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-10]});
@@ -146,15 +119,14 @@ function dotIcon(color){
 
 function loadCsvText(text){
   const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
-  allRows = parsed.data.map((r,i)=>(({
+  allRows = parsed.data.map((r,i)=>({
     _rowIndex:i,
     site_name:(r['Site Name']||'').trim(),
     cluster:(r['Cluster']||'').trim(),
     status:(r['Status']||'').trim(),
     lat: smartParseLatLon(r["Latitude"]),
-lon: smartParseLatLon(r["Longitude"])
-
-  })));
+    lon: smartParseLatLon(r["Longitude"])
+  }));
   populateClusterFilter();
   render();
 }
@@ -168,24 +140,17 @@ function populateClusterFilter(){
 
 function render(){
   markersLayer.clearLayers(); visibleMarkers={};
-  const bounds=[];
+  const bounds=[]; 
   const selectedCluster=document.getElementById('clusterSelect').value;
   let doneCount=0,pendingCount=0;
 
   allRows.forEach(r=>{
     if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
     if(selectedCluster!=='all' && r.cluster!==selectedCluster) return;
-
     if(!STATUS_COLORS[r.status]) STATUS_COLORS[r.status] = DEFAULT_STATUS_COLORS[Object.keys(STATUS_COLORS).length % DEFAULT_STATUS_COLORS.length];
     const color = STATUS_COLORS[r.status];
     const icon = dotIcon(color);
-
-    const popupHtml = `<div style="min-width:220px">
-      <strong>${r.site_name}</strong><br/>
-      <em>Cluster:</em> ${r.cluster}<br/>
-      <em>Status:</em> ${r.status}
-    </div>`;
-
+    const popupHtml = `<div style="min-width:220px"><strong>${r.site_name}</strong><br/><em>Cluster:</em> ${r.cluster}<br/><em>Status:</em> ${r.status}</div>`;
     const m = L.marker([r.lat,r.lon],{icon});
     m.bindPopup(popupHtml,{autoClose:false,closeOnClick:false});
     m.on('mouseover',()=>{ if(pinnedMarker && pinnedMarker!==m)pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; });
@@ -194,8 +159,7 @@ function render(){
     m.addTo(markersLayer);
     visibleMarkers['row'+r._rowIndex]=m;
     bounds.push([r.lat,r.lon]);
-
-    if(r.status==='Completed') doneCount++; else pendingCount++;
+    r.status==='Completed'? doneCount++ : pendingCount++;
   });
 
   animateValue('doneTotal',0,doneCount,doneCount+pendingCount);
@@ -204,11 +168,9 @@ function render(){
   document.getElementById('totalCount').textContent = `Total: ${doneCount+pendingCount}`;
 
   if(bounds.length){ const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2)); }
-
   generateLegend();
 }
 
-// Animate numbers
 function animateValue(id, start, end, total){
   const obj=document.getElementById(id); if(!obj) return;
   let startTimestamp=null;
@@ -223,12 +185,10 @@ function animateValue(id, start, end, total){
   window.requestAnimationFrame(step);
 }
 
-// Legend
 function generateLegend(){
   const legendContainer = document.getElementById('legendContainer');
   legendContainer.innerHTML = '';
   const statuses = Array.from(new Set(allRows.map(r=>r.status).filter(s=>s)));
-  
   statuses.forEach((status,i)=>{
     if(!STATUS_COLORS[status]) STATUS_COLORS[status] = DEFAULT_STATUS_COLORS[i % DEFAULT_STATUS_COLORS.length];
     const item = document.createElement('div'); item.className='item';
@@ -236,23 +196,14 @@ function generateLegend(){
     colorDiv.setAttribute('data-status',status); colorDiv.style.background = STATUS_COLORS[status];
 
     colorDiv.addEventListener('click', ()=>{
-  const input = document.createElement('input'); 
-  input.type = 'color';
-  input.value = STATUS_COLORS[status] || '#000000';
-  document.body.appendChild(input); 
-  input.click();
-
-  input.addEventListener('input', ()=>{
-    STATUS_COLORS[status] = input.value;
-    colorDiv.style.background = input.value;
-    updateMarkerColors(status, input.value);
-    // Save to localStorage so it persists
-    localStorage.setItem('markerColors', JSON.stringify(STATUS_COLORS));
-  });
-
-  input.addEventListener('change', ()=>document.body.removeChild(input));
-  input.addEventListener('blur', ()=>document.body.removeChild(input));
-});
+      const input = document.createElement('input'); 
+      input.type = 'color';
+      input.value = STATUS_COLORS[status] || '#000000';
+      document.body.appendChild(input); input.click();
+      input.addEventListener('input', ()=>{ STATUS_COLORS[status]=input.value;colorDiv.style.background=input.value; updateMarkerColors(status,input.value); localStorage.setItem('markerColors', JSON.stringify(STATUS_COLORS)); });
+      input.addEventListener('change', ()=>document.body.removeChild(input));
+      input.addEventListener('blur', ()=>document.body.removeChild(input));
+    });
 
     item.appendChild(colorDiv); item.appendChild(document.createTextNode(status));
     legendContainer.appendChild(item);
@@ -262,76 +213,61 @@ function generateLegend(){
 function updateMarkerColors(status,newColor){
   for(const key in visibleMarkers){
     const m = visibleMarkers[key];
-    const row = allRows.find(r=>'row'+r._rowIndex === key);
+    const row = allRows.find(r=>'row'+r._rowIndex===key);
     if(row && row.status===status) m.setIcon(dotIcon(newColor));
   }
 }
 
-function rgbToHex(rgb){ if(rgb.startsWith('#')) return rgb; const nums=rgb.match(/\d+/g).map(Number); return '#'+nums.map(n=>n.toString(16).padStart(2,'0')).join(''); }
-
-// --- Exact site find, case-insensitive ---
 function findSite(){
   const searchText = document.getElementById('siteSearch').value.trim().toLowerCase();
   if(!searchText) return;
-
-  let found = false;
+  let found=false;
   for(const key in visibleMarkers){
     const marker = visibleMarkers[key];
     const row = allRows[parseInt(key.replace('row',''))];
-    if(row.site_name.toLowerCase() === searchText){
+    if(row.site_name.toLowerCase()===searchText){
       if(pinnedMarker && pinnedMarker!==marker) pinnedMarker.closePopup();
-      pinnedMarker = marker;
-      marker.openPopup();
+      pinnedMarker=marker; marker.openPopup();
       map.setView(marker.getLatLng(),16);
-      document.getElementById('details').innerHTML = `<div style="min-width:220px">
-        <strong>${row.site_name}</strong><br/>
-        <em>Cluster:</em> ${row.cluster}<br/>
-        <em>Status:</em> ${row.status}
-      </div>`;
-      found = true;
-      break;
+      document.getElementById('details').innerHTML = `<div style="min-width:220px"><strong>${row.site_name}</strong><br/><em>Cluster:</em> ${row.cluster}<br/><em>Status:</em> ${row.status}</div>`;
+      found=true; break;
     }
   }
-
   if(!found) alert('Site not found!');
 }
 
 document.getElementById('clusterSelect').addEventListener('change',render);
-document.getElementById('siteFindBtn').addEventListener('click', findSite);
-document.getElementById('siteSearch').addEventListener('keypress', function(e){ if(e.key==='Enter') findSite(); });
+document.getElementById('siteFindBtn').addEventListener('click',findSite);
+document.getElementById('siteSearch').addEventListener('keypress',e=>{if(e.key==='Enter') findSite();});
 document.getElementById('sniperBtn').addEventListener('click',render);
 
 // Load polygons from GeoJSON
 fetch('smartcluster.geojson')
-  .then(r => r.json())
-  .then(data => {
+  .then(r=>r.json())
+  .then(data=>{
     polygonsLayer.clearLayers();
-    L.geoJSON(data, {
+    L.geoJSON(data,{
       style: feature => {
         const name = feature.properties.Name || 'Cluster';
-        if (!clusterColors[name]) {
-          const i = Object.keys(clusterColors).length;
-          clusterColors[name] = DEFAULT_CLUSTER_COLORS[i % DEFAULT_CLUSTER_COLORS.length];
-        }
-        return {color: clusterColors[name], fillColor: clusterColors[name], fillOpacity: 0.3, weight: 2};
+        if(!clusterColors[name]) clusterColors[name]=DEFAULT_CLUSTER_COLORS[Object.keys(clusterColors).length % DEFAULT_CLUSTER_COLORS.length];
+        return {color: clusterColors[name], fillColor: clusterColors[name], fillOpacity:0.3, weight:2};
       },
-      onEachFeature: (feature, layer) => {
-        layer.bindPopup(`<strong>Cluster:</strong> ${feature.properties.Name || 'Cluster'}`);
-      }
+      onEachFeature: (feature,layer) => layer.bindPopup(`<strong>Cluster:</strong> ${feature.properties.Name || 'Cluster'}`)
     }).addTo(polygonsLayer);
   });
 
+// --- Fetch Google Sheet CSV ---
 async function smartFetchCsv(){
   try{
-    const response=await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?output=csv");
+    const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQq9pqO7KbSPXQ2tYVnl-kKw-XgEw0uwqpMn-py2Spo67ZikKfQf63XtoxL0MxuUYzwAPkiQLOAu4dx/pub?output=csv&_t=" + Date.now();
+    const response = await fetch(url,{cache:"no-store"});
     if(!response.ok) throw new Error('Network response not ok');
-    const csvText=await response.text();
+    const csvText = await response.text();
     if(csvText!==lastCsvText){ lastCsvText=csvText; loadCsvText(csvText); }
-  }catch(err){ console.error('CSV fetch error:',err);}
+  } catch(err){ console.error('CSV fetch error:',err); }
 }
 
-  
-  smartFetchCsv();
+smartFetchCsv();
 setInterval(smartFetchCsv,30000);
 </script>
 </body>
